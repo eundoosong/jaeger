@@ -12,27 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package builder
+package plugin
 
 import (
-	"testing"
+	"flag"
 
-	"github.com/stretchr/testify/assert"
-
-	"github.com/jaegertracing/jaeger/pkg/config"
+	"github.com/spf13/viper"
 )
 
-func TestQueryBuilderFlags(t *testing.T) {
-	v, command := config.Viperize(AddFlags)
-	command.ParseFlags([]string{
-		"--query.static-files=/dev/null",
-		"--query.ui-config=some.json",
-		"--query.prefix=api",
-		"--query.port=80",
-	})
-	qOpts := new(QueryOptions).InitFromViper(v)
-	assert.Equal(t, "/dev/null", qOpts.StaticAssets)
-	assert.Equal(t, "some.json", qOpts.UIConfig)
-	assert.Equal(t, "api", qOpts.Prefix)
-	assert.Equal(t, 80, qOpts.Port)
+// Configurable interface can be implemented by plugins that require external configuration,
+// such as CLI flags, config files, or environment variables.
+type Configurable interface {
+	// AddFlags adds CLI flags for configuring this component.
+	AddFlags(flagSet *flag.FlagSet)
+
+	// InitFromViper initializes this component with properties from spf13/viper.
+	InitFromViper(v *viper.Viper)
 }

@@ -12,13 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package builder
+package memory
 
 import (
-	"github.com/jaegertracing/jaeger/storage/spanstore/memory"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func (sb *StorageBuilder) newMemoryStoreBuilder(memStore *memory.Store) {
-	sb.SpanReader = memStore
-	sb.DependencyReader = memStore
+func TestMemoryStorageFactory(t *testing.T) {
+	f := NewFactory()
+	assert.NoError(t, f.Initialize(nil, nil))
+	assert.NotNil(t, f.store)
+	reader, err := f.CreateSpanReader()
+	assert.NoError(t, err)
+	assert.Equal(t, f.store, reader)
+	writer, err := f.CreateSpanWriter()
+	assert.NoError(t, err)
+	assert.Equal(t, f.store, writer)
+	depReader, err := f.CreateDependencyReader()
+	assert.NoError(t, err)
+	assert.Equal(t, f.store, depReader)
 }
