@@ -137,14 +137,14 @@ build-examples: install-go-bindata
 docker-hotrod: build-examples
 	docker build -t $(DOCKER_NAMESPACE)/example-hotrod:${DOCKER_TAG} ./examples/hotrod
 
-.PHONY: build_ui
-build_ui:
+.PHONY: build-ui
+build-ui:
 	cd jaeger-ui && yarn install && npm run build
 	rm -rf jaeger-ui-build && mkdir jaeger-ui-build
 	cp -r jaeger-ui/build jaeger-ui-build/
 
 .PHONY: build-all-in-one-linux
-build-all-in-one-linux: build_ui
+build-all-in-one-linux: build-ui
 	CGO_ENABLED=0 GOOS=linux installsuffix=cgo go build -o ./cmd/standalone/standalone-linux $(BUILD_INFO) ./cmd/standalone/main.go
 
 .PHONY: build-agent-linux
@@ -165,7 +165,7 @@ docker-no-ui: build-agent-linux build-collector-linux build-query-linux build-cr
 	make docker-images-only
 
 .PHONY: docker
-docker: build_ui docker-no-ui
+docker: build-ui docker-no-ui
 
 .PHONY: docker-images-only
 docker-images-only:
