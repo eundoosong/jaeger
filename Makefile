@@ -138,10 +138,12 @@ docker-hotrod: build-examples
 	docker build -t $(DOCKER_NAMESPACE)/example-hotrod:${DOCKER_TAG} ./examples/hotrod
 
 .PHONY: build_ui
-build_ui:
+build_ui: install-go-bindata
 	cd jaeger-ui && yarn install && npm run build
-	rm -rf jaeger-ui-build && mkdir jaeger-ui-build
-	cp -r jaeger-ui/build jaeger-ui-build/
+	rm -rf bindata
+	cp -r jaeger-ui/build bindata
+	go-bindata-assetfs -pkg app bindata/... 
+	mv bindata.go cmd/query/app/	
 
 .PHONY: build-all-in-one-linux
 build-all-in-one-linux: build_ui

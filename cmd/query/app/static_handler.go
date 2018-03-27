@@ -26,6 +26,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"github.com/elazarl/go-bindata-assetfs"
 )
 
 var (
@@ -57,7 +58,7 @@ func RegisterStaticHandler(r *mux.Router, logger *zap.Logger, qOpts *QueryOption
 type StaticAssetsHandler struct {
 	options          StaticAssetsHandlerOptions
 	staticAssetsRoot string
-	indexHTML        []byte
+	assetFS          *assetfs.AssetFS
 }
 
 // StaticAssetsHandlerOptions defines options for NewStaticAssetsHandler
@@ -74,34 +75,13 @@ func NewStaticAssetsHandler(staticAssetsRoot string, options StaticAssetsHandler
 	if !strings.HasSuffix(staticAssetsRoot, "/") {
 		staticAssetsRoot = staticAssetsRoot + "/"
 	}
-	indexBytes, err := ioutil.ReadFile(staticAssetsRoot + "index.html")
-	if err != nil {
-		return nil, errors.Wrap(err, "Cannot read UI static assets")
-	}
-	configString := "JAEGER_CONFIG = DEFAULT_CONFIG"
-	if config, err := loadUIConfig(options.UIConfigPath); err != nil {
-		return nil, err
-	} else if config != nil {
-		// TODO if we want to support other config formats like YAML, we need to normalize `config` to be
-		// suitable for json.Marshal(). For example, YAML parser may return a map that has keys of type
-		// interface{}, and json.Marshal() is unable to serialize it.
-		bytes, _ := json.Marshal(config)
-		configString = fmt.Sprintf("JAEGER_CONFIG = %v", string(bytes))
-	}
-	indexBytes = configPattern.ReplaceAll(indexBytes, []byte(configString+";"))
-	if options.BasePath == "" {
-		options.BasePath = "/"
-	}
-	if options.BasePath != "/" {
-		if !strings.HasPrefix(options.BasePath, "/") || strings.HasSuffix(options.BasePath, "/") {
-			return nil, fmt.Errorf(errBadBasePath, options.BasePath)
-		}
-		indexBytes = basePathPattern.ReplaceAll(indexBytes, []byte(fmt.Sprintf(basePathReplace, options.BasePath)))
-	}
+
+	//TODO: How to apply UIConfig in index.html?
+
 	return &StaticAssetsHandler{
 		options:          options,
 		staticAssetsRoot: staticAssetsRoot,
-		indexHTML:        indexBytes,
+		assetFS:          assetFS(),
 	}, nil
 }
 
@@ -133,17 +113,14 @@ func loadUIConfig(uiConfig string) (map[string]interface{}, error) {
 
 // RegisterRoutes registers routes for this handler on the given router
 func (sH *StaticAssetsHandler) RegisterRoutes(router *mux.Router) {
-	router.PathPrefix("/static").Handler(sH.fileHandler())
-	for _, file := range staticRootFiles {
-		router.Path("/" + file).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, sH.staticAssetsRoot+file)
-		})
-	}
+	//How favoriteIcon is downloaded?
+	router.PathPrefix("/").Handler(sH.fileHandler())
+	//Do we need this?
 	router.NotFoundHandler = http.HandlerFunc(sH.notFound)
 }
 
 func (sH *StaticAssetsHandler) fileHandler() http.Handler {
-	fs := http.FileServer(http.Dir(sH.staticAssetsRoot))
+	fs := http.FileServer(sH.assetFS)
 	base := sH.options.BasePath
 	if base == "/" {
 		return fs
@@ -159,6 +136,12 @@ func (sH *StaticAssetsHandler) fileHandler() http.Handler {
 }
 
 func (sH *StaticAssetsHandler) notFound(w http.ResponseWriter, r *http.Request) {
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write(sH.indexHTML)
+	indexHTML, err := sH.assetFS.Asset("build/index.html")
+	if err != nil {
+		w.Write([]byte("<<html><body>ERROR</body></html>"))
+		return
+	}
+	w.Write(indexHTML)
 }
