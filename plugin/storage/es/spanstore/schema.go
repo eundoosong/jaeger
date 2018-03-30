@@ -173,8 +173,16 @@ var (
 		    "operationName":{
 		       "type":"keyword",
 		       "ignore_above":256
+		    },
+			"clusterName":{
+		       "type":"keyword",
+		       "ignore_above":256
+		    },
+			"projectName":{
+		       "type":"keyword",
+		       "ignore_above":256
 		    }
 		 }
-	      }`,
+		}`,
 	)
 )

@@ -28,6 +28,8 @@ import (
 	"github.com/jaegertracing/jaeger/pkg/cache"
 	"github.com/jaegertracing/jaeger/pkg/es"
 	storageMetrics "github.com/jaegertracing/jaeger/storage/spanstore/metrics"
+	"strings"
+	"encoding/json"
 )
 
 const (
@@ -67,12 +69,38 @@ func NewServiceOperationStorage(
 	}
 }
 
+func (s *ServiceOperationStorage) getClusterNameTag(jsonSpan *jModel.Span) string {
+
+	for _, tag := range jsonSpan.Tags {
+		if tag.Type == "string" && tag.Key == "cluster" {
+			s.logger.Info("cluster name is ", zap.String(tag.Key, tag.Value.(string)))
+			return tag.Value.(string)
+		}
+	}
+	s.logger.Warn("cluster name is empty")
+	return ""
+}
+
+func (s *ServiceOperationStorage) getNamespaceNameTag(jsonSpan *jModel.Span) string {
+
+	for _, tag := range jsonSpan.Tags {
+		if tag.Type == "string" && tag.Key == "namespace" {
+			s.logger.Info("namespace name is ", zap.String(tag.Key, tag.Value.(string)))
+			return tag.Value.(string)
+		}
+	}
+	s.logger.Warn("Namespace name is empty")
+	return ""
+}
+
 // Write saves a service to operation pair.
 func (s *ServiceOperationStorage) Write(indexName string, jsonSpan *jModel.Span) {
 	// Insert serviceName:operationName document
 	service := Service{
 		ServiceName:   jsonSpan.Process.ServiceName,
 		OperationName: jsonSpan.OperationName,
+		ClusterName:   s.getClusterNameTag(jsonSpan),
+		ProjectName:   s.getNamespaceNameTag(jsonSpan),
 	}
 	serviceID := fmt.Sprintf("%s|%s", service.ServiceName, service.OperationName)
 	cacheKey := fmt.Sprintf("%s:%s", indexName, serviceID)
@@ -87,7 +115,7 @@ func (s *ServiceOperationStorage) getServices(indices []string) ([]string, error
 
 	searchService := s.client.Search(indices...).
 		Type(serviceType).
-		Size(0). // set to 0 because we don't want actual documents.
+		//Size(0). // set to 0 because we don't want actual documents.
 		IgnoreUnavailable(true).
 		Aggregation(servicesAggregation, serviceAggregation)
 
@@ -95,6 +123,8 @@ func (s *ServiceOperationStorage) getServices(indices []string) ([]string, error
 	if err != nil {
 		return nil, errors.Wrap(err, "Search service failed")
 	}
+	json, err := json.Marshal(searchResult)
+	s.logger.Info("result : ", zap.String("json", string(json)))
 	if searchResult.Aggregations == nil {
 		return []string{}, nil
 	}
@@ -103,7 +133,9 @@ func (s *ServiceOperationStorage) getServices(indices []string) ([]string, error
 		return nil, errors.New("Could not find aggregation of " + servicesAggregation)
 	}
 	serviceNamesBucket := bucket.Buckets
-	return bucketToStringArray(serviceNamesBucket)
+	result, err := bucketToStringArray(serviceNamesBucket)
+	s.logger.Info("result: ", zap.String("service", strings.Join(result, ":")))
+	return result, err
 }
 
 func getServicesAggregation() elastic.Query {
@@ -139,6 +171,38 @@ func (s *ServiceOperationStorage) getOperations(indices []string, service string
 }
 
 func getOperationsAggregation() elastic.Query {
+	return elastic.NewTermsAggregation().
+		Field(operationNameField).
+		Size(defaultDocCount) // Must set to some large number. ES deprecated size omission for aggregating all. https://github.com/elastic/elasticsearch/issues/18838
+}
+
+func (s *ServiceOperationStorage) getClusterName(indices []string, service string) ([]string, error) {
+	serviceQuery := elastic.NewTermQuery(serviceName, service)
+	serviceFilter := getClusterAggregation()
+
+	searchService := s.client.Search(indices...).
+		Type(serviceType).
+		Size(0).
+		Query(serviceQuery).
+		IgnoreUnavailable(true).
+		Aggregation(operationsAggregation, serviceFilter)
+
+	searchResult, err := searchService.Do(s.ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "Search service failed")
+	}
+	if searchResult.Aggregations == nil {
+		return []string{}, nil
+	}
+	bucket, found := searchResult.Aggregations.Terms(operationsAggregation)
+	if !found {
+		return nil, errors.New("Could not find aggregation of " + operationsAggregation)
+	}
+	operationNamesBucket := bucket.Buckets
+	return bucketToStringArray(operationNamesBucket)
+}
+
+func getClusterAggregation() elastic.Query {
 	return elastic.NewTermsAggregation().
 		Field(operationNameField).
 		Size(defaultDocCount) // Must set to some large number. ES deprecated size omission for aggregating all. https://github.com/elastic/elasticsearch/issues/18838

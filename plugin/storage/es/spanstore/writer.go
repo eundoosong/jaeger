@@ -62,6 +62,8 @@ type SpanWriter struct {
 type Service struct {
 	ServiceName   string `json:"serviceName"`
 	OperationName string `json:"operationName"`
+	ClusterName string `json:"clusterName"`
+	ProjectName string `json:"projectName"`
 }
 
 // Span adds a StartTimeMillis field to the standard JSON span.
