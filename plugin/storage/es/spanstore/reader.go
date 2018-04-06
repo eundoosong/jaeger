@@ -167,7 +167,8 @@ func indexWithDate(prefix string, date time.Time) string {
 func (s *SpanReader) GetServices() ([]string, error) {
 	currentTime := time.Now()
 	jaegerIndices := findIndices(serviceIndexPrefix, currentTime.Add(-s.maxLookback), currentTime)
-	return s.serviceOperationStorage.getServices(jaegerIndices)
+	//return s.serviceOperationStorage.getServices(jaegerIndices)
+	return s.serviceOperationStorage.getClusterServices(jaegerIndices)
 }
 
 // GetOperations returns all operations for a specific service traced by Jaeger
@@ -189,6 +190,15 @@ func bucketToStringArray(buckets []*elastic.AggregationBucketKeyItem) ([]string,
 	return strings, nil
 }
 
+func summarizeQueryParameters(traceQuery *spanstore.TraceQueryParameters) string {
+	text := "service: " + traceQuery.ServiceName + "\n"
+	text += "operation: " + traceQuery.OperationName + "\n"
+	for k, v := range traceQuery.Tags {
+		text += "tag: (" + k + ", "+ v +")\n"
+	}
+	return text
+}
+
 // FindTraces retrieves traces that match the traceQuery
 func (s *SpanReader) FindTraces(traceQuery *spanstore.TraceQueryParameters) ([]*model.Trace, error) {
 	if err := validateQuery(traceQuery); err != nil {
@@ -197,8 +207,19 @@ func (s *SpanReader) FindTraces(traceQuery *spanstore.TraceQueryParameters) ([]*
 	if traceQuery.NumTraces == 0 {
 		traceQuery.NumTraces = defaultNumTraces
 	}
+	s.logger.Info(traceQuery.ServiceName)
+	clusterInfoList, err := getClusterFromService(traceQuery.ServiceName)
+	if err != nil {
+		return nil, err
+	}
+	traceQuery.ServiceName = clusterInfoList[2]
+	traceQuery.Tags["cluster"] = clusterInfoList[0]
+	traceQuery.Tags["namespace"] = clusterInfoList[1]
+	s.logger.Info(summarizeQueryParameters(traceQuery))
+
 	uniqueTraceIDs, err := s.findTraceIDs(traceQuery)
 	if err != nil {
+		s.logger.Error("error in getting traceIDs")
 		return nil, err
 	}
 	return s.multiRead(uniqueTraceIDs, traceQuery.StartTimeMin, traceQuery.StartTimeMax)

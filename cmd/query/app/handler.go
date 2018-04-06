@@ -147,6 +147,7 @@ func (aH *APIHandler) route(route string, args ...interface{}) string {
 }
 
 func (aH *APIHandler) getServices(w http.ResponseWriter, r *http.Request) {
+	aH.logger.Info("getServices")
 	services, err := aH.spanReader.GetServices()
 	if aH.handleError(w, err, http.StatusInternalServerError) {
 		return
@@ -159,6 +160,7 @@ func (aH *APIHandler) getServices(w http.ResponseWriter, r *http.Request) {
 }
 
 func (aH *APIHandler) getOperationsLegacy(w http.ResponseWriter, r *http.Request) {
+	aH.logger.Info("getOperationsLegacy")
 	vars := mux.Vars(r)
 	service := vars[serviceParam] //given how getOperationsLegacy is used, service will always be a non-empty string
 	operations, err := aH.spanReader.GetOperations(service)
@@ -173,6 +175,7 @@ func (aH *APIHandler) getOperationsLegacy(w http.ResponseWriter, r *http.Request
 }
 
 func (aH *APIHandler) getOperations(w http.ResponseWriter, r *http.Request) {
+	aH.logger.Info("getOperations")
 	service := r.FormValue(serviceParam)
 	if service == "" {
 		if aH.handleError(w, ErrServiceParameterRequired, http.StatusBadRequest) {
@@ -191,6 +194,7 @@ func (aH *APIHandler) getOperations(w http.ResponseWriter, r *http.Request) {
 }
 
 func (aH *APIHandler) search(w http.ResponseWriter, r *http.Request) {
+	aH.logger.Info("search")
 	tQuery, err := aH.queryParser.parse(r)
 	if aH.handleError(w, err, http.StatusBadRequest) {
 		return
@@ -246,6 +250,7 @@ func (aH *APIHandler) tracesByIDs(traceIDs []model.TraceID) ([]*model.Trace, []s
 }
 
 func (aH *APIHandler) dependencies(w http.ResponseWriter, r *http.Request) {
+	aH.logger.Info("dependancy")
 	endTsMillis, err := strconv.ParseInt(r.FormValue(endTsParam), 10, 64)
 	if aH.handleError(w, errors.Wrapf(err, "Unable to parse %s", endTimeParam), http.StatusBadRequest) {
 		return
@@ -345,6 +350,7 @@ func (aH *APIHandler) parseTraceID(w http.ResponseWriter, r *http.Request) (mode
 
 // getTrace implements the REST API /traces/{trace-id}
 func (aH *APIHandler) getTrace(w http.ResponseWriter, r *http.Request) {
+	aH.logger.Info("getTrace")
 	aH.getTraceFromReaders(w, r, aH.spanReader, aH.archiveSpanReader)
 }
 
@@ -413,6 +419,7 @@ func (aH *APIHandler) withTraceFromReader(
 // archiveTrace implements the REST API POST:/archive/{trace-id}.
 // It reads the trace from the main Reader and saves it to archive Writer.
 func (aH *APIHandler) archiveTrace(w http.ResponseWriter, r *http.Request) {
+	aH.logger.Info("archiveTrace")
 	if aH.archiveSpanWriter == nil {
 		aH.handleError(w, errNoArchiveSpanStorage, http.StatusInternalServerError)
 		return
@@ -450,6 +457,7 @@ func (aH *APIHandler) handleError(w http.ResponseWriter, err error, statusCode i
 		},
 	}
 	resp, _ := json.Marshal(&structuredResp)
+	aH.logger.Error(string(resp))
 	http.Error(w, string(resp), statusCode)
 	return true
 }
