@@ -29,7 +29,7 @@ const (
 	collectorPort                = "collector.port"
 	collectorHTTPPort            = "collector.http-port"
 	collectorZipkinHTTPort       = "collector.zipkin.http-port"
-	collectorHealthCheckHTTPPort = "collector.health-check-http-port"
+	CollectorHealthCheckHTTPPort = "collector.health-check-http-port"
 )
 
 // CollectorOptions holds configuration for collector
@@ -55,7 +55,7 @@ func AddFlags(flags *flag.FlagSet) {
 	flags.Int(collectorPort, 14267, "The tchannel port for the collector service")
 	flags.Int(collectorHTTPPort, 14268, "The http port for the collector service")
 	flags.Int(collectorZipkinHTTPort, 0, "The http port for the Zipkin collector service e.g. 9411")
-	flags.Int(collectorHealthCheckHTTPPort, 14269, "The http port for the health check service")
+	flags.Int(CollectorHealthCheckHTTPPort, 14269, "The http port for the health check service")
 }
 
 // InitFromViper initializes CollectorOptions with properties from viper
@@ -65,6 +65,6 @@ func (cOpts *CollectorOptions) InitFromViper(v *viper.Viper) *CollectorOptions {
 	cOpts.CollectorPort = v.GetInt(collectorPort)
 	cOpts.CollectorHTTPPort = v.GetInt(collectorHTTPPort)
 	cOpts.CollectorZipkinHTTPPort = v.GetInt(collectorZipkinHTTPort)
-	cOpts.CollectorHealthCheckHTTPPort = v.GetInt(collectorHealthCheckHTTPPort)
+	cOpts.CollectorHealthCheckHTTPPort = v.GetInt(CollectorHealthCheckHTTPPort)
 	return cOpts
 }
