@@ -59,8 +59,8 @@ import (
 )
 
 const (
-	HealthCheckHTTPPort = "standalone.health-check-http-port"
-	HealthCheckDefaultPort = 16687
+	healthCheckHTTPRoute = "standalone.health-check-http-route"
+	defaultHealthCheckRoute = "/healthcheck"
 )
 
 // standalone/main is a standalone full-stack jaeger backend, backed by a memory store
@@ -97,13 +97,13 @@ func main() {
 				return err
 			}
 
-			hc, err := healthcheck.
-				New(healthcheck.Unavailable, healthcheck.Logger(logger)).
-				Serve(v.GetInt(HealthCheckHTTPPort))
+			hc := healthcheck.
+				New(healthcheck.Unavailable, healthcheck.Logger(logger))
+			/*	Serve(v.GetInt(HealthCheckHTTPPort))
 			if err != nil {
 				logger.Fatal("Could not start the health check server.", zap.Error(err))
 			}
-
+			*/
 			mBldr := new(pMetrics.Builder).InitFromViper(v)
 			metricsFactory, err := mBldr.CreateMetricsFactory("jaeger-standalone")
 			if err != nil {
@@ -133,7 +133,7 @@ func main() {
 			qOpts := new(queryApp.QueryOptions).InitFromViper(v)
 
 			startAgent(aOpts, cOpts, logger, metricsFactory)
-			startCollector(cOpts, spanWriter, logger, metricsFactory, samplingHandler, hc)
+			startCollector(cOpts, spanWriter, logger, metricsFactory, samplingHandler, hc, v.GetString(healthCheckHTTPRoute))
 			startQuery(qOpts, spanReader, dependencyReader, logger, metricsFactory, mBldr, hc)
 			hc.Ready()
 
@@ -159,8 +159,8 @@ func main() {
 		queryApp.AddFlags,
 		pMetrics.AddFlags,
 		strategyStoreFactory.AddFlags,
-		func(flagSet *flag.FlagSet) {flagSet.Int(HealthCheckHTTPPort, HealthCheckDefaultPort,
-			"The http port for the health check services")},
+		func(flagSet *flag.FlagSet) {flagSet.String(healthCheckHTTPRoute, defaultHealthCheckRoute,
+			"The route of HTTP endpoint for the health check services")},
 	)
 	hideQueryCollectorFlags(command)
 
@@ -208,6 +208,7 @@ func startCollector(
 	baseFactory metrics.Factory,
 	samplingHandler sampling.Handler,
 	hc *healthcheck.HealthCheck,
+	hc_route string,
 ) {
 	metricsFactory := baseFactory.Namespace("jaeger-collector", nil)
 
@@ -242,6 +243,7 @@ func startCollector(
 	apiHandler.RegisterRoutes(r)
 	httpPortStr := ":" + strconv.Itoa(cOpts.CollectorHTTPPort)
 	recoveryHandler := recoveryhandler.NewRecoveryHandler(logger, true)
+	hc.RegisterRoutes(hc_route, r)
 
 	go startZipkinHTTPAPI(logger, cOpts.CollectorZipkinHTTPPort, zipkinSpansHandler, recoveryHandler)
 
