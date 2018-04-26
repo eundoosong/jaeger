@@ -1,0 +1,65 @@
+version: '2'
+
+#docker run --rm --name jaegerES -i -p 9200:9200 -p 9300:9300   -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:6.2.3
+
+networks:
+  es:
+
+services:
+    jaeger-collector:
+      image: jaegertracing/jaeger-collector
+      command: ["/go/bin/collector-linux", "--collector.zipkin.http-port=9411"]
+      ports:
+        - "14269"
+        - "14268:14268"
+        - "14267"
+        - "9411:9411"
+      restart: on-failure
+      environment:
+        SPAN_STORAGE_TYPE: "elasticsearch"
+      depends_on:
+        - elasticsearch
+      networks:
+        - es
+
+    jaeger-query:
+      image: jaegertracing/jaeger-query
+      command: ["/go/bin/query-linux", "--query.static-files=/go/jaeger-ui/"]
+      ports:
+        - "16686:16686"
+        - "16687"
+      restart: on-failure
+      environment:
+        SPAN_STORAGE_TYPE: "elasticsearch"
+      depends_on:
+        - elasticsearch
+      networks:
+        - es
+
+    jaeger-agent:
+      image: jaegertracing/jaeger-agent
+      command: ["/go/bin/agent-linux", "--collector.host-port=jaeger-collector:14267"]
+      ports:
+        - "5775:5775/udp"
+        - "6831:6831/udp"
+        - "6832:6832/udp"
+        - "5778:5778"
+      restart: on-failure
+      depends_on:
+        - jaeger-collector
+      networks:
+        - es
+
+    elasticsearch:
+      #image: docker.elastic.co/elasticsearch/elasticsearch:5.6.0
+      image: docker.elastic.co/elasticsearch/elasticsearch:6.2.3
+      #command: ["bin/elasticsearch", "-Ehttp.host=0.0.0.0", "-Etransport.host=127.0.0.1"]
+      ports:
+        - "9200:9200"
+        - "9300:9300"
+      environment:
+        ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+        discovery.type: "single-node"
+      restart: on-failure
+      networks:
+        - es
