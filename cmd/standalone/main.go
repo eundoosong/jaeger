@@ -12,9 +12,42 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/*
+$ curl -v localhost:14268/healthcheck
+*   Trying 127.0.0.1...
+* Connected to localhost (127.0.0.1) port 14268 (#0)
+> GET /healthcheck HTTP/1.1
+> Host: localhost:14268
+> User-Agent: curl/7.47.0
+> Accept: *//*
+>
+< HTTP/1.1 204 No Content
+< Date: Thu, 26 Apr 2018 07:08:30 GMT
+<
+* Connection #0 to host localhost left intact
+
+~/go/src/github.com/jaegertracing/jaeger on  healcheck_standalone2! ⌚ 16:08:30
+$ curl -v localhost:14268/healthcheck/version
+*   Trying 127.0.0.1...
+* Connected to localhost (127.0.0.1) port 14268 (#0)
+> GET /healthcheck/version HTTP/1.1
+> Host: localhost:14268
+> User-Agent: curl/7.47.0
+> Accept: *//*
+>
+< HTTP/1.1 200 OK
+< Date: Thu, 26 Apr 2018 07:08:33 GMT
+< Content-Length: 113
+< Content-Type: text/plain; charset=utf-8
+<
+* Connection #0 to host localhost left intact
+{"gitCommit":"a025c81405e477bc1e1347bb8a4ab8d857833de4","GitVersion":"v1.3.0","BuildDate":"2018-04-26T07:05:07Z"}%
+*/
+
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -44,6 +77,7 @@ import (
 	"github.com/jaegertracing/jaeger/cmd/flags"
 	queryApp "github.com/jaegertracing/jaeger/cmd/query/app"
 	"github.com/jaegertracing/jaeger/pkg/config"
+	"github.com/jaegertracing/jaeger/pkg/healthcheck"
 	pMetrics "github.com/jaegertracing/jaeger/pkg/metrics"
 	"github.com/jaegertracing/jaeger/pkg/recoveryhandler"
 	"github.com/jaegertracing/jaeger/pkg/version"
@@ -54,6 +88,11 @@ import (
 	jc "github.com/jaegertracing/jaeger/thrift-gen/jaeger"
 	sc "github.com/jaegertracing/jaeger/thrift-gen/sampling"
 	zc "github.com/jaegertracing/jaeger/thrift-gen/zipkincore"
+)
+
+const (
+	healthCheckHTTPRoute = "standalone.health-check-http-route"
+	defaultHealthCheckRoute = "/healthcheck"
 )
 
 // standalone/main is a standalone full-stack jaeger backend, backed by a memory store
@@ -90,6 +129,13 @@ func main() {
 				return err
 			}
 
+			hc := healthcheck.
+				New(healthcheck.Unavailable, healthcheck.Logger(logger))
+			/*	Serve(v.GetInt(HealthCheckHTTPPort))
+			if err != nil {
+				logger.Fatal("Could not start the health check server.", zap.Error(err))
+			}
+			*/
 			mBldr := new(pMetrics.Builder).InitFromViper(v)
 			metricsFactory, err := mBldr.CreateMetricsFactory("jaeger-standalone")
 			if err != nil {
@@ -119,8 +165,9 @@ func main() {
 			qOpts := new(queryApp.QueryOptions).InitFromViper(v)
 
 			startAgent(aOpts, cOpts, logger, metricsFactory)
-			startCollector(cOpts, spanWriter, logger, metricsFactory, samplingHandler)
-			startQuery(qOpts, spanReader, dependencyReader, logger, metricsFactory, mBldr)
+			startCollector(cOpts, spanWriter, logger, metricsFactory, samplingHandler, hc, v.GetString(healthCheckHTTPRoute))
+			startQuery(qOpts, spanReader, dependencyReader, logger, metricsFactory, mBldr, hc)
+			hc.Ready()
 
 			select {
 			case <-signalsChannel:
@@ -144,11 +191,23 @@ func main() {
 		queryApp.AddFlags,
 		pMetrics.AddFlags,
 		strategyStoreFactory.AddFlags,
+		func(flagSet *flag.FlagSet) {flagSet.String(healthCheckHTTPRoute, defaultHealthCheckRoute,
+			"The route of HTTP endpoint for the health check services")},
 	)
+	hideQueryCollectorFlags(command)
 
 	if err := command.Execute(); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
+	}
+}
+
+func hideQueryCollectorFlags(command *cobra.Command) {
+	if err := command.Flags().MarkHidden(queryApp.QueryHealthCheckHTTPPort); err != nil {
+		fmt.Println(err.Error())
+	}
+	if err := command.Flags().MarkHidden(collector.CollectorHealthCheckHTTPPort); err != nil {
+		fmt.Println(err.Error())
 	}
 }
 
@@ -180,6 +239,8 @@ func startCollector(
 	logger *zap.Logger,
 	baseFactory metrics.Factory,
 	samplingHandler sampling.Handler,
+	hc *healthcheck.HealthCheck,
+	hc_route string,
 ) {
 	metricsFactory := baseFactory.Namespace("jaeger-collector", nil)
 
@@ -214,6 +275,7 @@ func startCollector(
 	apiHandler.RegisterRoutes(r)
 	httpPortStr := ":" + strconv.Itoa(cOpts.CollectorHTTPPort)
 	recoveryHandler := recoveryhandler.NewRecoveryHandler(logger, true)
+	hc.RegisterRoutes(hc_route, r)
 
 	go startZipkinHTTPAPI(logger, cOpts.CollectorZipkinHTTPPort, zipkinSpansHandler, recoveryHandler)
 
@@ -222,6 +284,7 @@ func startCollector(
 		if err := http.ListenAndServe(httpPortStr, recoveryHandler(r)); err != nil {
 			logger.Fatal("Could not launch jaeger-collector HTTP server", zap.Error(err))
 		}
+		hc.Set(healthcheck.Unavailable)
 	}()
 }
 
@@ -251,8 +314,8 @@ func startQuery(
 	logger *zap.Logger,
 	baseFactory metrics.Factory,
 	metricsBuilder *pMetrics.Builder,
+	hc *healthcheck.HealthCheck,
 ) {
-
 	tracer, closer, err := jaegerClientConfig.Configuration{
 		Sampler: &jaegerClientConfig.SamplerConfig{
 			Type:  "const",
@@ -289,6 +352,7 @@ func startQuery(
 		if err := http.ListenAndServe(portStr, recoveryHandler(r)); err != nil {
 			logger.Fatal("Could not launch jaeger-query service", zap.Error(err))
 		}
+		hc.Set(healthcheck.Unavailable)
 	}()
 }
 

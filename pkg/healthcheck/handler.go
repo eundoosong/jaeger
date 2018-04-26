@@ -24,6 +24,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/jaegertracing/jaeger/pkg/version"
+	"github.com/gorilla/mux"
 )
 
 // Status represents the state of the service.
@@ -57,6 +58,7 @@ type HealthCheck struct {
 	logger  *zap.Logger
 	mapping map[Status]int
 	server  *http.Server
+	prefix  string
 }
 
 // Option is a functional option for passing parameters to New()
@@ -77,6 +79,7 @@ func New(state Status, options ...Option) *HealthCheck {
 			Unavailable: http.StatusServiceUnavailable,
 			Ready:       http.StatusNoContent,
 		},
+		prefix: "/",
 	}
 	for _, option := range options {
 		option(hc)
@@ -117,14 +120,21 @@ func (hc *HealthCheck) Close() error {
 
 // httpHandler creates a new HTTP handler.
 func (hc *HealthCheck) httpHandler() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(hc.mapping[hc.Get()])
-		// this is written only for response with an entity, so, it won't be used for a 204 - No content
-		w.Write([]byte("Server not available"))
-	})
-	version.RegisterHandler(mux, hc.logger)
-	return mux
+	m := http.NewServeMux()
+	m.HandleFunc(hc.prefix, hc.responseHealthCheck)
+	version.RegisterHandler(hc.prefix, m, hc.logger)
+	return m
+}
+
+func (hc *HealthCheck) responseHealthCheck(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(hc.mapping[hc.Get()])
+	// this is written only for response with an entity, so, it won't be used for a 204 - No content
+	w.Write([]byte("Server not available"))
+}
+
+func (hc *HealthCheck) RegisterRoutes(prefix string, router *mux.Router) {
+	router.HandleFunc(prefix, hc.responseHealthCheck)
+	version.RegisterRoute(prefix, router, hc.logger)
 }
 
 // Set a new health check status

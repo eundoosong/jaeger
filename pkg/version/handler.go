@@ -19,16 +19,29 @@ import (
 	"net/http"
 
 	"go.uber.org/zap"
+	"github.com/gorilla/mux"
 )
 
 // RegisterHandler registers version handler to /version
-func RegisterHandler(mu *http.ServeMux, logger *zap.Logger) {
+func RegisterHandler(prefix string, mu *http.ServeMux, logger *zap.Logger) {
 	info := Get()
 	json, err := json.Marshal(info)
 	if err != nil {
 		logger.Fatal("Could not get Jaeger version", zap.Error(err))
 	}
-	mu.HandleFunc("/version", func(w http.ResponseWriter, _ *http.Request) {
+	mu.HandleFunc(prefix+"/version", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(200)
+		w.Write(json)
+	})
+}
+
+func RegisterRoute(prefix string, router *mux.Router, logger *zap.Logger) {
+	info := Get()
+	json, err := json.Marshal(info)
+	if err != nil {
+		logger.Fatal("Could not get Jaeger version", zap.Error(err))
+	}
+	router.HandleFunc(prefix+"/version", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(200)
 		w.Write(json)
 	})
