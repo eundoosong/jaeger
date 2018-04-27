@@ -82,13 +82,12 @@ func main() {
 			if err != nil {
 				return err
 			}
-
-			builderOpts := new(builder.CollectorOptions).InitFromViper(v)
-
 			hc, err := sFlags.NewHealthCheck(logger, builder.DefaultHealthCheckHTTPPort)
 			if err != nil {
 				logger.Fatal("Could not start the health check server.", zap.Error(err))
 			}
+
+			builderOpts := new(builder.CollectorOptions).InitFromViper(v)
 
 			mBldr := new(pMetrics.Builder).InitFromViper(v)
 			metricsFactory, err := mBldr.CreateMetricsFactory("jaeger-collector")

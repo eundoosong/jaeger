@@ -67,13 +67,12 @@ func main() {
 			if err != nil {
 				return err
 			}
-
-			queryOpts := new(app.QueryOptions).InitFromViper(v)
-
 			hc, err := sFlags.NewHealthCheck(logger, app.DefaultHealthCheckHTTPPort)
 			if err != nil {
 				logger.Fatal("Could not start the health check server.", zap.Error(err))
 			}
+
+			queryOpts := new(app.QueryOptions).InitFromViper(v)
 
 			mBldr := new(pMetrics.Builder).InitFromViper(v)
 			metricsFactory, err := mBldr.CreateMetricsFactory("jaeger-query")
