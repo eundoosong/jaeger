@@ -23,13 +23,15 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/jaegertracing/jaeger/pkg/healthcheck"
 	"github.com/jaegertracing/jaeger/plugin/storage"
 )
 
 const (
-	spanStorageType = "span-storage.type" // deprecated
-	logLevel        = "log-level"
-	configFile      = "config-file"
+	spanStorageType     = "span-storage.type" // deprecated
+	logLevel            = "log-level"
+	configFile          = "config-file"
+	healthCheckHTTPPort = "health-check-http-port"
 )
 
 // AddConfigFileFlag adds flags for ExternalConfFlags
@@ -52,7 +54,8 @@ func TryLoadConfigFile(v *viper.Viper) error {
 // SharedFlags holds flags configuration
 type SharedFlags struct {
 	// Logging holds logging configuration
-	Logging logging
+	Logging         logging
+	HealthCheckPort int
 }
 
 type logging struct {
@@ -63,11 +66,14 @@ type logging struct {
 func AddFlags(flagSet *flag.FlagSet) {
 	flagSet.String(spanStorageType, "", fmt.Sprintf("Deprecated; please use %s environment variable", storage.SpanStorageTypeEnvVar))
 	flagSet.String(logLevel, "info", "Minimal allowed log Level. For more levels see https://github.com/uber-go/zap")
+	flagSet.Int(healthCheckHTTPPort, 0,
+		"The http port for the health check service (collector/standalone default: 14269, query default: 16687)")
 }
 
 // InitFromViper initializes SharedFlags with properties from viper
 func (flags *SharedFlags) InitFromViper(v *viper.Viper) *SharedFlags {
 	flags.Logging.Level = v.GetString(logLevel)
+	flags.HealthCheckPort = v.GetInt(healthCheckHTTPPort)
 	return flags
 }
 
@@ -80,4 +86,13 @@ func (flags *SharedFlags) NewLogger(conf zap.Config, options ...zap.Option) (*za
 	}
 	conf.Level = zap.NewAtomicLevelAt(level)
 	return conf.Build(options...)
+}
+
+func (flags *SharedFlags) NewHealthCheck(logger *zap.Logger, port int) (*healthcheck.HealthCheck, error) {
+	if flags.HealthCheckPort > 0 {
+		port = flags.HealthCheckPort
+	}
+	return healthcheck.
+		New(healthcheck.Unavailable, healthcheck.Logger(logger)).
+		Serve(port)
 }

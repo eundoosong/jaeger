@@ -84,9 +84,8 @@ func main() {
 			}
 
 			builderOpts := new(builder.CollectorOptions).InitFromViper(v)
-			hc, err := healthcheck.
-				New(healthcheck.Unavailable, healthcheck.Logger(logger)).
-				Serve(builderOpts.CollectorHealthCheckHTTPPort)
+
+			hc, err := sFlags.NewHealthCheck(logger, builder.DefaultHealthCheckHTTPPort)
 			if err != nil {
 				logger.Fatal("Could not start the health check server.", zap.Error(err))
 			}

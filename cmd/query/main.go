@@ -69,9 +69,8 @@ func main() {
 			}
 
 			queryOpts := new(app.QueryOptions).InitFromViper(v)
-			hc, err := healthcheck.
-				New(healthcheck.Unavailable, healthcheck.Logger(logger)).
-				Serve(queryOpts.HealthCheckHTTPPort)
+
+			hc, err := sFlags.NewHealthCheck(logger, app.DefaultHealthCheckHTTPPort)
 			if err != nil {
 				logger.Fatal("Could not start the health check server.", zap.Error(err))
 			}
