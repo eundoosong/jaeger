@@ -59,6 +59,30 @@ import (
 
 const defaultHealthCheckPort = collector.CollectorDefaultHealthCheckHTTPPort
 
+
+
+type HealthCheck struct {
+	queryStatus int32
+	collectorStatus int32
+	hc healthcheck.HealthCheck
+}
+
+func (hc *HealthCheck) Ready() {
+	if 	hc.collectorStatus == 1 && hc.queryStatus == 1 {
+		hc.hc.Ready()
+	}
+}
+
+func (hc *HealthCheck) Set(state healthcheck.Status) {
+	if(state == healthcheck.Unavailable)
+	
+}
+
+func (hc *HealthCheck) QueryReady() {
+	
+}
+
+
 // standalone/main is a standalone full-stack jaeger backend, backed by a memory store
 func main() {
 	var signalsChannel = make(chan os.Signal, 0)
@@ -128,7 +152,6 @@ func main() {
 			startAgent(aOpts, cOpts, logger, metricsFactory)
 			startCollector(cOpts, spanWriter, logger, metricsFactory, samplingHandler, hc)
 			startQuery(qOpts, spanReader, dependencyReader, logger, metricsFactory, mBldr, hc)
-			hc.Ready()
 
 			select {
 			case <-signalsChannel:
