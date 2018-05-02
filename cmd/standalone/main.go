@@ -55,33 +55,36 @@ import (
 	jc "github.com/jaegertracing/jaeger/thrift-gen/jaeger"
 	sc "github.com/jaegertracing/jaeger/thrift-gen/sampling"
 	zc "github.com/jaegertracing/jaeger/thrift-gen/zipkincore"
+	"sync/atomic"
 )
 
 const defaultHealthCheckPort = collector.CollectorDefaultHealthCheckHTTPPort
 
-
-
 type HealthCheck struct {
-	queryStatus int32
-	collectorStatus int32
-	hc healthcheck.HealthCheck
+	appReady int32
+	hc *healthcheck.HealthCheck
+}
+
+func NewHealthCheck(ohc *healthcheck.HealthCheck) *HealthCheck{
+	hc := &HealthCheck{
+		hc: ohc,
+		appReady: 0,
+	}
+	return hc
 }
 
 func (hc *HealthCheck) Ready() {
-	if 	hc.collectorStatus == 1 && hc.queryStatus == 1 {
+	if atomic.LoadInt32(&hc.appReady) == 0 {
 		hc.hc.Ready()
 	}
 }
 
 func (hc *HealthCheck) Set(state healthcheck.Status) {
-	if(state == healthcheck.Unavailable)
-	
+	if state == healthcheck.Unavailable {
+		atomic.StoreInt32(&hc.appReady, int32(1))
+	}
+	hc.hc.Set(state)
 }
-
-func (hc *HealthCheck) QueryReady() {
-	
-}
-
 
 // standalone/main is a standalone full-stack jaeger backend, backed by a memory store
 func main() {
@@ -120,6 +123,7 @@ func main() {
 			if err != nil {
 				logger.Fatal("Could not start the health check server.", zap.Error(err))
 			}
+			shc := NewHealthCheck(hc)
 
 			mBldr := new(pMetrics.Builder).InitFromViper(v)
 			metricsFactory, err := mBldr.CreateMetricsFactory("jaeger-standalone")
@@ -150,8 +154,9 @@ func main() {
 			qOpts := new(queryApp.QueryOptions).InitFromViper(v)
 
 			startAgent(aOpts, cOpts, logger, metricsFactory)
-			startCollector(cOpts, spanWriter, logger, metricsFactory, samplingHandler, hc)
-			startQuery(qOpts, spanReader, dependencyReader, logger, metricsFactory, mBldr, hc)
+			startCollector(cOpts, spanWriter, logger, metricsFactory, samplingHandler, shc)
+			startQuery(qOpts, spanReader, dependencyReader, logger, metricsFactory, mBldr, shc)
+			shc.Ready()
 
 			select {
 			case <-signalsChannel:
@@ -211,7 +216,7 @@ func startCollector(
 	logger *zap.Logger,
 	baseFactory metrics.Factory,
 	samplingHandler sampling.Handler,
-	hc *healthcheck.HealthCheck,
+	hc *HealthCheck,
 ) {
 	metricsFactory := baseFactory.Namespace("jaeger-collector", nil)
 
@@ -284,7 +289,7 @@ func startQuery(
 	logger *zap.Logger,
 	baseFactory metrics.Factory,
 	metricsBuilder *pMetrics.Builder,
-	hc *healthcheck.HealthCheck,
+	hc *HealthCheck,
 ) {
 	tracer, closer, err := jaegerClientConfig.Configuration{
 		Sampler: &jaegerClientConfig.SamplerConfig{
