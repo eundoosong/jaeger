@@ -60,17 +60,23 @@ import (
 
 const defaultHealthCheckPort = collector.CollectorDefaultHealthCheckHTTPPort
 
+///// TEST Code for resolving race problem //////
 type HealthCheck struct {
 	appReady int32
 	hc *healthcheck.HealthCheck
 }
 
-func NewHealthCheck(ohc *healthcheck.HealthCheck) *HealthCheck{
+func NewHealthCheck(sFlags *flags.SharedFlags, logger *zap.Logger) (*HealthCheck, error){
+	ohc, err := sFlags.NewHealthCheck(logger, defaultHealthCheckPort)
+	if err != nil {
+		logger.Fatal("Could not start the health check server.", zap.Error(err))
+		return nil, err
+	}
 	hc := &HealthCheck{
 		hc: ohc,
-		appReady: 0,
+		appReady: 0, //0 Ok, 1 Error
 	}
-	return hc
+	return hc, nil
 }
 
 func (hc *HealthCheck) Ready() {
@@ -85,6 +91,7 @@ func (hc *HealthCheck) Set(state healthcheck.Status) {
 	}
 	hc.hc.Set(state)
 }
+///// END TEST Code for resolving race problem //////
 
 // standalone/main is a standalone full-stack jaeger backend, backed by a memory store
 func main() {
@@ -119,11 +126,8 @@ func main() {
 			if err != nil {
 				return err
 			}
-			hc, err := sFlags.NewHealthCheck(logger, defaultHealthCheckPort)
-			if err != nil {
-				logger.Fatal("Could not start the health check server.", zap.Error(err))
-			}
-			shc := NewHealthCheck(hc)
+
+			hc, _ := NewHealthCheck(sFlags, logger)
 
 			mBldr := new(pMetrics.Builder).InitFromViper(v)
 			metricsFactory, err := mBldr.CreateMetricsFactory("jaeger-standalone")
@@ -154,9 +158,9 @@ func main() {
 			qOpts := new(queryApp.QueryOptions).InitFromViper(v)
 
 			startAgent(aOpts, cOpts, logger, metricsFactory)
-			startCollector(cOpts, spanWriter, logger, metricsFactory, samplingHandler, shc)
-			startQuery(qOpts, spanReader, dependencyReader, logger, metricsFactory, mBldr, shc)
-			shc.Ready()
+			startCollector(cOpts, spanWriter, logger, metricsFactory, samplingHandler, hc)
+			startQuery(qOpts, spanReader, dependencyReader, logger, metricsFactory, mBldr, hc)
+			hc.Ready()
 
 			select {
 			case <-signalsChannel:
