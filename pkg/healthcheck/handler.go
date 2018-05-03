@@ -32,6 +32,8 @@ type Status int
 const (
 	// Unavailable indicates the service is not able to handle requests
 	Unavailable Status = iota
+	// ServerError indicates the service is in an error and not able to handle requests
+	ServerError
 	// Ready indicates the service is ready to handle requests
 	Ready
 	// Broken indicates that the healthcheck itself is broken, not serving HTTP
@@ -42,6 +44,8 @@ func (s Status) String() string {
 	switch s {
 	case Unavailable:
 		return "unavailable"
+	case ServerError:
+		return "servererror"
 	case Ready:
 		return "ready"
 	case Broken:
@@ -75,6 +79,7 @@ func New(state Status, options ...Option) *HealthCheck {
 		state: int32(state),
 		mapping: map[Status]int{
 			Unavailable: http.StatusServiceUnavailable,
+			ServerError: http.StatusInternalServerError,
 			Ready:       http.StatusNoContent,
 		},
 	}
