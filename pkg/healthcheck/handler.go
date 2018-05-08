@@ -19,11 +19,10 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"sync/atomic"
-
 	"go.uber.org/zap"
 
 	"github.com/jaegertracing/jaeger/pkg/version"
+	"sync"
 )
 
 // Status represents the state of the service.
@@ -61,6 +60,7 @@ type HealthCheck struct {
 	logger  *zap.Logger
 	mapping map[Status]int
 	server  *http.Server
+	lock *sync.Mutex
 }
 
 // Option is a functional option for passing parameters to New()
@@ -82,6 +82,7 @@ func New(state Status, options ...Option) *HealthCheck {
 			ServerError: http.StatusInternalServerError,
 			Ready:       http.StatusNoContent,
 		},
+		lock: &sync.Mutex{},
 	}
 	for _, option := range options {
 		option(hc)
@@ -134,16 +135,29 @@ func (hc *HealthCheck) httpHandler() http.Handler {
 
 // Set a new health check status
 func (hc *HealthCheck) Set(state Status) {
-	atomic.StoreInt32(&hc.state, int32(state))
+	hc.lock.Lock()
+	hc.state = int32(state)
+	hc.lock.Unlock()
 	hc.logger.Info("Health Check state change", zap.Stringer("status", hc.Get()))
 }
 
 // Get the current status of this health check
 func (hc *HealthCheck) Get() Status {
-	return Status(atomic.LoadInt32(&hc.state))
+	hc.lock.Lock()
+	defer hc.lock.Unlock()
+	return Status(hc.state)
 }
 
 // Ready is a shortcut for Set(Ready) (kept for backwards compatibility)
 func (hc *HealthCheck) Ready() {
 	hc.Set(Ready)
+}
+
+// Ready is a shortcut for Set(Ready) (kept for backwards compatibility)
+func (hc *HealthCheck) ReadyIfNotServerError() {
+	hc.lock.Lock()
+	defer hc.lock.Unlock()
+	if hc.state == int32(Unavailable) {
+		hc.state = int32(Ready)
+	}
 }

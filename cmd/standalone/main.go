@@ -55,15 +55,16 @@ import (
 	jc "github.com/jaegertracing/jaeger/thrift-gen/jaeger"
 	sc "github.com/jaegertracing/jaeger/thrift-gen/sampling"
 	zc "github.com/jaegertracing/jaeger/thrift-gen/zipkincore"
-	"sync/atomic"
+	"sync"
 )
 
 const defaultHealthCheckPort = collector.CollectorDefaultHealthCheckHTTPPort
 
 ///// TEST Code for resolving race problem //////
 type HealthCheck struct {
-	appReady int32
+	serverError bool
 	hc *healthcheck.HealthCheck
+	lock *sync.Mutex
 }
 
 func NewHealthCheck(sFlags *flags.SharedFlags, logger *zap.Logger) (*HealthCheck, error){
@@ -74,24 +75,31 @@ func NewHealthCheck(sFlags *flags.SharedFlags, logger *zap.Logger) (*HealthCheck
 	}
 	hc := &HealthCheck{
 		hc: ohc,
-		appReady: 0, //0 Ok, 1 Error
+		serverError: false,
+		lock: &sync.Mutex{},
 	}
 	return hc, nil
 }
 
 func (hc *HealthCheck) Ready() {
-	if atomic.LoadInt32(&hc.appReady) == 0 {
+	hc.lock.Lock()
+	defer hc.lock.Unlock()
+	if hc.serverError == false {
 		hc.hc.Ready()
 	}
 }
 
 func (hc *HealthCheck) Set(state healthcheck.Status) {
+	hc.lock.Lock()
+	defer hc.lock.Unlock()
 	if state == healthcheck.Unavailable {
-		atomic.StoreInt32(&hc.appReady, int32(1))
+		hc.serverError = true
 	}
 	hc.hc.Set(state)
 }
 ///// END TEST Code for resolving race problem //////
+
+var serverError = make(chan bool)
 
 // standalone/main is a standalone full-stack jaeger backend, backed by a memory store
 func main() {
@@ -168,6 +176,7 @@ func main() {
 			}
 
 			select {
+			case <-serverError:
 			case <-signalsChannel:
 				logger.Info("Jaeger Standalone is finishing")
 			}
@@ -258,17 +267,19 @@ func startCollector(
 	r := mux.NewRouter()
 	apiHandler := collectorApp.NewAPIHandler(jaegerBatchesHandler)
 	apiHandler.RegisterRoutes(r)
-	//httpPortStr := ":" + strconv.Itoa(cOpts.CollectorHTTPPort)
+	httpPortStr := ":" + strconv.Itoa(cOpts.CollectorHTTPPort)
 	recoveryHandler := recoveryhandler.NewRecoveryHandler(logger, true)
 
 	go startZipkinHTTPAPI(logger, cOpts.CollectorZipkinHTTPPort, zipkinSpansHandler, recoveryHandler)
 
 	logger.Info("Starting jaeger-collector HTTP server", zap.Int("http-port", cOpts.CollectorHTTPPort))
 	go func() {
-		//if err := http.ListenAndServe(httpPortStr, recoveryHandler(r)); err != nil {
-		//			logger.Fatal("Could not launch jaeger-collector HTTP server", zap.Error(err))
-		//}
+		if err := http.ListenAndServe(httpPortStr, recoveryHandler(r)); err != nil {
+					logger.Fatal("Could not launch jaeger-collector HTTP server", zap.Error(err))
+		}
 		hc.Set(healthcheck.ServerError)
+		serverError <- true
+
 	}()
 }
 
@@ -338,6 +349,7 @@ func startQuery(
 			logger.Fatal("Could not launch jaeger-query service", zap.Error(err))
 		}
 		hc.Set(healthcheck.ServerError)
+		serverError <- true
 	}()
 }
 
