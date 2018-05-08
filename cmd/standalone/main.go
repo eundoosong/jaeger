@@ -124,8 +124,12 @@ func main() {
 			qOpts := new(queryApp.QueryOptions).InitFromViper(v)
 
 			startAgent(aOpts, cOpts, logger, metricsFactory)
-			startCollector(cOpts, spanWriter, logger, metricsFactory, samplingHandler, hc)
-			startQuery(qOpts, spanReader, dependencyReader, logger, metricsFactory, mBldr, hc)
+			collectorServer := startCollector(cOpts, spanWriter, logger, metricsFactory, samplingHandler, hc)
+			queryServer := startQuery(qOpts, spanReader, dependencyReader, logger, metricsFactory, mBldr, hc)
+			logger.Info("Starting jaeger-collector HTTP server", zap.Int("http-port", cOpts.CollectorHTTPPort))
+			logger.Info("Starting jaeger-query HTTP server", zap.Int("port", qOpts.Port))
+			go collectorServer()
+			go queryServer()
 			hc.Ready()
 
 			select {
@@ -167,7 +171,6 @@ func startAgent(
 	baseFactory metrics.Factory,
 ) {
 	metricsFactory := baseFactory.Namespace("jaeger-agent", nil)
-
 	if len(b.CollectorHostPorts) == 0 {
 		b.CollectorHostPorts = append(b.CollectorHostPorts, fmt.Sprintf("127.0.0.1:%d", cOpts.CollectorPort))
 	}
@@ -189,7 +192,7 @@ func startCollector(
 	baseFactory metrics.Factory,
 	samplingHandler sampling.Handler,
 	hc *healthcheck.HealthCheck,
-) {
+) func() {
 	metricsFactory := baseFactory.Namespace("jaeger-collector", nil)
 
 	spanBuilder, err := collector.NewSpanHandlerBuilder(
@@ -226,13 +229,13 @@ func startCollector(
 
 	go startZipkinHTTPAPI(logger, cOpts.CollectorZipkinHTTPPort, zipkinSpansHandler, recoveryHandler)
 
-	logger.Info("Starting jaeger-collector HTTP server", zap.Int("http-port", cOpts.CollectorHTTPPort))
-	go func() {
+	return func() {
 		if err := http.ListenAndServe(httpPortStr, recoveryHandler(r)); err != nil {
 			logger.Fatal("Could not launch jaeger-collector HTTP server", zap.Error(err))
 		}
 		hc.Set(healthcheck.Unavailable)
-	}()
+	}
+
 }
 
 func startZipkinHTTPAPI(
@@ -262,7 +265,7 @@ func startQuery(
 	baseFactory metrics.Factory,
 	metricsBuilder *pMetrics.Builder,
 	hc *healthcheck.HealthCheck,
-) {
+) func() {
 	tracer, closer, err := jaegerClientConfig.Configuration{
 		Sampler: &jaegerClientConfig.SamplerConfig{
 			Type:  "const",
@@ -293,14 +296,13 @@ func startQuery(
 
 	portStr := ":" + strconv.Itoa(qOpts.Port)
 	recoveryHandler := recoveryhandler.NewRecoveryHandler(logger, true)
-	logger.Info("Starting jaeger-query HTTP server", zap.Int("port", qOpts.Port))
-	go func() {
+	return func() {
 		defer closer.Close()
 		if err := http.ListenAndServe(portStr, recoveryHandler(r)); err != nil {
 			logger.Fatal("Could not launch jaeger-query service", zap.Error(err))
 		}
 		hc.Set(healthcheck.Unavailable)
-	}()
+	}
 }
 
 func initializeSamplingHandler(
