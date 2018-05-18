@@ -1,6 +1,6 @@
 <img align="right" width="290" height="290" src="http://jaeger.readthedocs.io/en/latest/images/jaeger-vector.svg">
 
-[![Build Status][ci-img]][ci] [![Coverage Status][cov-img]][cov] [![ReadTheDocs][doc-img]][doc] [![GoDoc][godoc-img]][godoc] [![Gitter chat][gitter-img]][gitter] [![OpenTracing-1.0][ot-badge]](http://opentracing.io) [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fjaegertracing%2Fjaeger.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fjaegertracing%2Fjaeger?ref=badge_shield) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1273/badge)](https://bestpractices.coreinfrastructure.org/projects/1273)
+[![Build Status][ci-img]][ci] [![Coverage Status][cov-img]][cov] [![Gitter chat][gitter-img]][gitter] [![OpenTracing-1.0][ot-badge]](http://opentracing.io) [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fjaegertracing%2Fjaeger.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fjaegertracing%2Fjaeger?ref=badge_shield) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1273/badge)](https://bestpractices.coreinfrastructure.org/projects/1273)
 
 # Jaeger - a Distributed Tracing System
 
@@ -74,7 +74,7 @@ of routing the traffic from Zipkin libraries to the Jaeger backend.
 
 ### Documentation
 
-  * Published: http://jaeger.readthedocs.io/en/latest/
+  * Published: https://www.jaegertracing.io/docs/
   * Source: https://github.com/jaegertracing/documentation
 
 ### Instrumentation Libraries
@@ -83,7 +83,8 @@ of routing the traffic from Zipkin libraries to the Jaeger backend.
  * [Java client](https://github.com/jaegertracing/jaeger-client-java)
  * [Python client](https://github.com/jaegertracing/jaeger-client-python)
  * [Node.js client](https://github.com/jaegertracing/jaeger-client-node)
- * [C++ client](https://github.com/jaegertracing/cpp-client)
+ * [C++ client](https://github.com/jaegertracing/jaeger-client-cpp)
+ * [C# client](https://github.com/jaegertracing/jaeger-client-csharp)
 
 ### Deployment
 
@@ -111,7 +112,7 @@ The Jaeger contributors meet bi-weekly, and everyone is welcome to join.
 
 ## Roadmap
 
-See http://jaeger.readthedocs.io/en/latest/roadmap/
+See https://www.jaegertracing.io/docs/roadmap/
 
 ## Questions, Discussions, Bug Reports
 
@@ -135,8 +136,7 @@ If you would like to add your organization to the list, please comment on our
 
 [Apache 2.0 License](./LICENSE).
 
-[doc-img]: https://readthedocs.org/projects/jaeger/badge/?version=latest
-[doc]: http://jaeger.readthedocs.org/en/latest/
+[doc]: https://jaegertracing.io/docs/
 [godoc-img]: https://godoc.org/github.com/jaegertracing/jaeger?status.svg
 [godoc]: https://godoc.org/github.com/jaegertracing/jaeger
 [ci-img]: https://travis-ci.org/jaegertracing/jaeger.svg?branch=master
