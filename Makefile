@@ -159,6 +159,10 @@ build_ui: install-go-bindata
 build-all-in-one-linux: build_ui
 	GOOS=linux $(MAKE) build-all-in-one
 
+.PHONY: build-all-in-one-darwin
+build-all-in-one-darwin: build_ui
+	GOOS=darwin $(MAKE) build-all-in-one
+
 .PHONY: build-all-in-one
 build-all-in-one:
 	CGO_ENABLED=0 installsuffix=cgo go build -o ./cmd/standalone/standalone-$(GOOS) $(BUILD_INFO) ./cmd/standalone/main.go
