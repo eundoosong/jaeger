@@ -1,5 +1,6 @@
 PROJECT_ROOT=github.com/jaegertracing/jaeger
 TOP_PKGS := $(shell glide novendor | grep -v -e ./thrift-gen/... -e swagger-gen... -e ./examples/... -e ./scripts/...)
+STORAGE_PKGS = ./plugin/storage/integration/...
 
 # all .go files that don't exist in hidden directories
 ALL_SRC := $(shell find . -name "*.go" | grep -v -e vendor -e thrift-gen -e swagger-gen -e examples -e doc.go \
@@ -16,6 +17,7 @@ GOTEST=go test -v $(RACE)
 GOLINT=golint
 GOVET=go vet
 GOFMT=gofmt
+GAS=gas -quiet -exclude=G104
 FMT_LOG=fmt.log
 LINT_LOG=lint.log
 IMPORT_LOG=import.log
@@ -77,7 +79,7 @@ integration-test: go-gen
 
 .PHONY: storage-integration-test
 storage-integration-test: go-gen
-	$(GOTEST) ./plugin/storage/integration/...
+	bash -c "set -e; set -o pipefail; $(GOTEST) $(STORAGE_PKGS) | $(COLORIZE)"
 
 all-pkgs:
 	@echo $(ALL_PKGS) | tr ' ' '\n' | sort
@@ -103,8 +105,12 @@ fmt:
 	$(GOFMT) -e -s -l -w $(ALL_SRC)
 	./scripts/updateLicenses.sh
 
+.PHONY: lint-gas
+lint-gas:
+	$(GAS) $(TOP_PKGS)
+
 .PHONY: lint
-lint:
+lint: lint-gas
 	$(GOVET) $(TOP_PKGS)
 	@cat /dev/null > $(LINT_LOG)
 	@$(foreach pkg, $(TOP_PKGS), $(GOLINT) $(pkg) | grep -v -e pkg/es/wrapper.go -e /mocks/ -e thrift-gen -e thrift-0.9.2 >> $(LINT_LOG) || true;)
@@ -147,27 +153,43 @@ build_ui: install-go-bindata
 
 .PHONY: build-all-in-one-linux
 build-all-in-one-linux: build_ui
-	CGO_ENABLED=0 GOOS=linux installsuffix=cgo go build -o ./cmd/standalone/standalone-linux $(BUILD_INFO) ./cmd/standalone/main.go
+	GOOS=linux $(MAKE) build-all-in-one
 
-.PHONY: build-agent-linux
-build-agent-linux:
-	CGO_ENABLED=0 GOOS=linux installsuffix=cgo go build -o ./cmd/agent/agent-linux $(BUILD_INFO) ./cmd/agent/main.go
+.PHONY: build-all-in-one
+build-all-in-one:
+	CGO_ENABLED=0 installsuffix=cgo go build -o ./cmd/standalone/standalone-$(GOOS) $(BUILD_INFO) ./cmd/standalone/main.go
 
-.PHONY: build-query-linux
-build-query-linux:
-	CGO_ENABLED=0 GOOS=linux installsuffix=cgo go build -o ./cmd/query/query-linux $(BUILD_INFO) ./cmd/query/main.go
+.PHONY: build-agent
+build-agent:
+	CGO_ENABLED=0 installsuffix=cgo go build -o ./cmd/agent/agent-$(GOOS) $(BUILD_INFO) ./cmd/agent/main.go
 
-.PHONY: build-collector-linux
-build-collector-linux:
-	CGO_ENABLED=0 GOOS=linux installsuffix=cgo go build -o ./cmd/collector/collector-linux $(BUILD_INFO) ./cmd/collector/main.go
+.PHONY: build-query
+build-query:
+	CGO_ENABLED=0 installsuffix=cgo go build -o ./cmd/query/query-$(GOOS) $(BUILD_INFO) ./cmd/query/main.go
+
+.PHONY: build-collector
+build-collector:
+	CGO_ENABLED=0 installsuffix=cgo go build -o ./cmd/collector/collector-$(GOOS) $(BUILD_INFO) ./cmd/collector/main.go
 
 .PHONY: docker-no-ui
-docker-no-ui: build-agent-linux build-collector-linux build-query-linux build-crossdock-linux
+docker-no-ui: build-binaries-linux build-crossdock-linux
 	mkdir -p jaeger-ui-build/build/
 	make docker-images-only
 
 .PHONY: docker
 docker: build_ui docker-no-ui
+
+.PHONY: build-binaries-linux
+build-binaries-linux:
+	GOOS=linux $(MAKE) build-agent build-collector build-query build-all-in-one
+
+.PHONY: build-binaries-windows
+build-binaries-windows:
+	GOOS=windows $(MAKE) build-agent build-collector build-query build-all-in-one
+
+.PHONY: build-binaries-darwin
+build-binaries-darwin:
+	GOOS=darwin $(MAKE) build-agent build-collector build-query build-all-in-one
 
 .PHONY: docker-images-only
 docker-images-only:
@@ -210,13 +232,17 @@ build-crossdock: docker-no-ui
 build-crossdock-fresh: build-crossdock-linux
 	make crossdock-fresh
 
-.PHONY: install-ci
-install-ci: install
+.PHONY: install-tools
+install-tools:
 	go get github.com/wadey/gocovmerge
 	go get github.com/mattn/goveralls
 	go get golang.org/x/tools/cmd/cover
 	go get github.com/golang/lint/golint
 	go get github.com/sectioneight/md-to-godoc
+	go get github.com/GoASTScanner/gas/cmd/gas/...
+
+.PHONY: install-ci
+install-ci: install install-tools
 
 .PHONY: test-ci
 test-ci: build-examples lint cover
@@ -264,3 +290,7 @@ install-mockery:
 .PHONY: generate-mocks
 generate-mocks: install-mockery
 	$(MOCKERY) -all -dir ./pkg/es/ -output ./pkg/es/mocks && rm pkg/es/mocks/ClientBuilder.go
+
+.PHONY: echo-version
+echo-version:
+	@echo $(GIT_CLOSEST_TAG)

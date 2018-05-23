@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,16 +33,16 @@ const NumberOfFixtures = 1
 
 func TestFromDomain(t *testing.T) {
 	for i := 1; i <= NumberOfFixtures; i++ {
-		inStr, outStr := testReadFixtures(t, i, false)
+		domainStr, jsonStr := testReadFixtures(t, i, false)
 
 		var trace model.Trace
-		require.NoError(t, json.Unmarshal(inStr, &trace))
+		require.NoError(t, json.Unmarshal(domainStr, &trace))
 		uiTrace := FromDomain(&trace)
 
-		testOutput(t, i, outStr, uiTrace, false)
+		testOutput(t, i, jsonStr, uiTrace, false)
 	}
 	// this is just to confirm the uint64 representation of float64(72.5) used as a "temperature" tag
-	assert.Equal(t, int64(4634802150889750528), model.Float64("x", 72.5).VNum)
+	assert.Equal(t, int64(4634802150889750528), int64(math.Float64bits(72.5)))
 }
 
 func TestFromDomainEmbedProcess(t *testing.T) {
@@ -59,6 +60,7 @@ func TestFromDomainEmbedProcess(t *testing.T) {
 	}
 }
 
+// Loads and returns domain model and JSON model fixtures with given number i.
 func testReadFixtures(t *testing.T, i int, processEmbedded bool) ([]byte, []byte) {
 	var in string
 	if processEmbedded {
@@ -79,7 +81,7 @@ func testReadFixtures(t *testing.T, i int, processEmbedded bool) ([]byte, []byte
 	return inStr, outStr
 }
 
-func testOutput(t *testing.T, i int, outStr []byte, object interface{}, processEmbedded bool) {
+func testOutput(t *testing.T, i int, expectedStr []byte, object interface{}, processEmbedded bool) {
 	buf := &bytes.Buffer{}
 	enc := json.NewEncoder(buf)
 	enc.SetIndent("", "  ")
@@ -93,7 +95,7 @@ func testOutput(t *testing.T, i int, outStr []byte, object interface{}, processE
 		require.NoError(t, enc.Encode(object.(*jModel.Trace)))
 	}
 
-	if !assert.Equal(t, string(outStr), string(buf.Bytes())) {
+	if !assert.Equal(t, string(expectedStr), string(buf.Bytes())) {
 		err := ioutil.WriteFile(outFile+"-actual.json", buf.Bytes(), 0644)
 		assert.NoError(t, err)
 	}

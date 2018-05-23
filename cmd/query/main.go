@@ -24,7 +24,6 @@ import (
 	"syscall"
 
 	"github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	jaegerClientConfig "github.com/uber/jaeger-client-go/config"
@@ -68,14 +67,12 @@ func main() {
 			if err != nil {
 				return err
 			}
-
-			queryOpts := new(app.QueryOptions).InitFromViper(v)
-			hc, err := healthcheck.
-				New(healthcheck.Unavailable, healthcheck.Logger(logger)).
-				Serve(queryOpts.HealthCheckHTTPPort)
+			hc, err := sFlags.NewHealthCheck(logger)
 			if err != nil {
 				logger.Fatal("Could not start the health check server.", zap.Error(err))
 			}
+
+			queryOpts := new(app.QueryOptions).InitFromViper(v)
 
 			mBldr := new(pMetrics.Builder).InitFromViper(v)
 			metricsFactory, err := mBldr.CreateMetricsFactory("jaeger-query")
@@ -117,7 +114,7 @@ func main() {
 				spanReader,
 				dependencyReader,
 				apiHandlerOptions...)
-			r := mux.NewRouter()
+			r := app.NewRouter()
 			if queryOpts.BasePath != "/" {
 				r = r.PathPrefix(queryOpts.BasePath).Subrouter()
 			}
@@ -153,6 +150,8 @@ func main() {
 
 	command.AddCommand(version.Command())
 	command.AddCommand(env.Command())
+
+	flags.SetDefaultHealthCheckPort(app.QueryDefaultHealthCheckHTTPPort)
 
 	config.AddFlags(
 		v,

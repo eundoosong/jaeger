@@ -1,6 +1,6 @@
 # ElasticSearch Support
 
-This provides a plugin to use Jaeger with [ElasticSearch](https://www.elastic.co). This currently supports ElasticSearch 5.x.
+This provides a plugin to use Jaeger with [ElasticSearch](https://www.elastic.co). This currently supports ElasticSearch 5.x and 6.x.
 
 ## Indices
 Indices will be created depending on the spans timestamp. i.e., a span with
@@ -49,7 +49,7 @@ Queries are case-sensitive. For example, if a document with service name `ABC` i
 the document will not be retrieved.
 
 ## Testing
-To locally test the ElasticSearch storage plugin, 
+To locally test the ElasticSearch storage plugin,
 * have [ElasticSearch](https://www.elastic.co/guide/en/elasticsearch/reference/current/setup.html) running on port 9200
 * run `STORAGE=es make storage-integration-test` in the top folder.
 
