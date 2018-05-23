@@ -58,7 +58,7 @@ func RegisterStaticHandler(r *mux.Router, logger *zap.Logger, qOpts *QueryOption
 type StaticAssetsHandler struct {
 	options          StaticAssetsHandlerOptions
 	staticAssetsRoot string
-	assetFS          *assetfs.AssetFS
+	indexHTML		 []byte
 }
 
 // StaticAssetsHandlerOptions defines options for NewStaticAssetsHandler
@@ -76,12 +76,35 @@ func NewStaticAssetsHandler(staticAssetsRoot string, options StaticAssetsHandler
 		staticAssetsRoot = staticAssetsRoot + "/"
 	}
 
-	//TODO: applying UIConfig in index.html
+	indexBytes, err := assetFS().Asset("bindata/index.html")
+	if err != nil {
+		return nil, errors.Wrap(err, "Cannot read UI static assets")
+	}
+	configString := "JAEGER_CONFIG = DEFAULT_CONFIG"
+	if config, err := loadUIConfig(options.UIConfigPath); err != nil {
+		return nil, err
+	} else if config != nil {
+		// TODO if we want to support other config formats like YAML, we need to normalize `config` to be
+		// suitable for json.Marshal(). For example, YAML parser may return a map that has keys of type
+		// interface{}, and json.Marshal() is unable to serialize it.
+		bytes, _ := json.Marshal(config)
+		configString = fmt.Sprintf("JAEGER_CONFIG = %v", string(bytes))
+	}
+	indexBytes = configPattern.ReplaceAll(indexBytes, []byte(configString+";"))
+	if options.BasePath == "" {
+		options.BasePath = "/"
+	}
+	if options.BasePath != "/" {
+		if !strings.HasPrefix(options.BasePath, "/") || strings.HasSuffix(options.BasePath, "/") {
+			return nil, fmt.Errorf(errBadBasePath, options.BasePath)
+		}
+		indexBytes = basePathPattern.ReplaceAll(indexBytes, []byte(fmt.Sprintf(basePathReplace, options.BasePath)))
+	}
 
 	return &StaticAssetsHandler{
 		options:          options,
 		staticAssetsRoot: staticAssetsRoot,
-		assetFS:          assetFS(),
+		indexHTML:		  indexBytes,
 	}, nil
 }
 
@@ -120,6 +143,7 @@ func (sH *StaticAssetsHandler) RegisterRoutes(router *mux.Router) {
 	router.NotFoundHandler = http.HandlerFunc(sH.notFound)
 }
 
+/*
 func (sH *StaticAssetsHandler) fileHandler() http.Handler {
 	fs := http.FileServer(sH.assetFS)
 	base := sH.options.BasePath
@@ -135,47 +159,9 @@ func (sH *StaticAssetsHandler) fileHandler() http.Handler {
 		fs.ServeHTTP(w, r)
 	})
 }
-
-func (sH *StaticAssetsHandler) notFound(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	indexHTML, err := sH.assetFS.Asset("bindata/index.html")
-	if err != nil {
-		w.Write([]byte("<html><body>ERROR</body></html>"))
-		return
-	}
-	w.Write(indexHTML)
-}
-
-/*
-// RegisterRoutes registers routes for this handler on the given router
-func (sH *StaticAssetsHandler) RegisterRoutes(router *mux.Router) {
-	router.PathPrefix("/static").Handler(sH.fileHandler())
-	for _, file := range staticRootFiles {
-		router.Path("/" + file).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, sH.staticAssetsRoot+file)
-		})
-	}
-	router.NotFoundHandler = http.HandlerFunc(sH.notFound)
-}
-
-func (sH *StaticAssetsHandler) fileHandler() http.Handler {
-	fs := http.FileServer(http.Dir(sH.staticAssetsRoot))
-	base := sH.options.BasePath
-	if base == "/" {
-		return fs
-	}
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, base) {
-			// gorilla Subroute() is a bit odd, it keeps the base path in the URL,
-			// which prevents the FileServer from locating the files, so we strip the prefix.
-			r.URL.Path = r.URL.Path[len(base):]
-		}
-		fs.ServeHTTP(w, r)
-	})
-}
+*/
 
 func (sH *StaticAssetsHandler) notFound(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write(sH.indexHTML)
 }
- */
