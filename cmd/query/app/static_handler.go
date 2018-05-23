@@ -76,7 +76,7 @@ func NewStaticAssetsHandler(staticAssetsRoot string, options StaticAssetsHandler
 		staticAssetsRoot = staticAssetsRoot + "/"
 	}
 
-	//TODO: How to apply UIConfig in index.html?
+	//TODO: applying UIConfig in index.html
 
 	return &StaticAssetsHandler{
 		options:          options,
@@ -113,9 +113,10 @@ func loadUIConfig(uiConfig string) (map[string]interface{}, error) {
 
 // RegisterRoutes registers routes for this handler on the given router
 func (sH *StaticAssetsHandler) RegisterRoutes(router *mux.Router) {
-	//How favoriteIcon is downloaded?
-	router.PathPrefix("/").Handler(sH.fileHandler())
-	//Do we need this?
+	router.PathPrefix("/static").Handler(http.FileServer(&assetfs.AssetFS{Asset: Asset ,AssetDir: AssetDir, Prefix: "bindata" }))
+	for _, file := range staticRootFiles {
+		router.Path("/" + file).Handler(http.FileServer(&assetfs.AssetFS{Asset: Asset ,AssetDir: AssetDir, Prefix: "bindata" }))
+	}
 	router.NotFoundHandler = http.HandlerFunc(sH.notFound)
 }
 
@@ -136,12 +137,45 @@ func (sH *StaticAssetsHandler) fileHandler() http.Handler {
 }
 
 func (sH *StaticAssetsHandler) notFound(w http.ResponseWriter, r *http.Request) {
-
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	indexHTML, err := sH.assetFS.Asset("build/index.html")
+	indexHTML, err := sH.assetFS.Asset("bindata/index.html")
 	if err != nil {
-		w.Write([]byte("<<html><body>ERROR</body></html>"))
+		w.Write([]byte("<html><body>ERROR</body></html>"))
 		return
 	}
 	w.Write(indexHTML)
 }
+
+/*
+// RegisterRoutes registers routes for this handler on the given router
+func (sH *StaticAssetsHandler) RegisterRoutes(router *mux.Router) {
+	router.PathPrefix("/static").Handler(sH.fileHandler())
+	for _, file := range staticRootFiles {
+		router.Path("/" + file).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, sH.staticAssetsRoot+file)
+		})
+	}
+	router.NotFoundHandler = http.HandlerFunc(sH.notFound)
+}
+
+func (sH *StaticAssetsHandler) fileHandler() http.Handler {
+	fs := http.FileServer(http.Dir(sH.staticAssetsRoot))
+	base := sH.options.BasePath
+	if base == "/" {
+		return fs
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, base) {
+			// gorilla Subroute() is a bit odd, it keeps the base path in the URL,
+			// which prevents the FileServer from locating the files, so we strip the prefix.
+			r.URL.Path = r.URL.Path[len(base):]
+		}
+		fs.ServeHTTP(w, r)
+	})
+}
+
+func (sH *StaticAssetsHandler) notFound(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(sH.indexHTML)
+}
+ */
