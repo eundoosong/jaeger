@@ -76,7 +76,7 @@ func NewStaticAssetsHandler(staticAssetsRoot string, options StaticAssetsHandler
 		staticAssetsRoot = staticAssetsRoot + "/"
 	}
 
-	indexBytes, err := assetFS().Asset("bindata/index.html")
+	indexBytes, err := Asset(staticAssetsRoot + "index.html")
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot read UI static assets")
 	}
@@ -134,18 +134,27 @@ func loadUIConfig(uiConfig string) (map[string]interface{}, error) {
 	return c, nil
 }
 
+func (sH *StaticAssetsHandler) getAssetFS() *assetfs.AssetFS {
+	return &assetfs.AssetFS{
+		Asset: Asset,
+		AssetDir: AssetDir,
+		AssetInfo: AssetInfo,
+		Prefix: sH.staticAssetsRoot,
+	}
+}
+
 // RegisterRoutes registers routes for this handler on the given router
 func (sH *StaticAssetsHandler) RegisterRoutes(router *mux.Router) {
-	router.PathPrefix("/static").Handler(http.FileServer(&assetfs.AssetFS{Asset: Asset ,AssetDir: AssetDir, Prefix: "bindata" }))
+	router.PathPrefix("/static").Handler(sH.fileHandler())
 	for _, file := range staticRootFiles {
-		router.Path("/" + file).Handler(http.FileServer(&assetfs.AssetFS{Asset: Asset ,AssetDir: AssetDir, Prefix: "bindata" }))
+
+		router.Path("/" + file).Handler(http.FileServer(sH.getAssetFS()))
 	}
 	router.NotFoundHandler = http.HandlerFunc(sH.notFound)
 }
 
-/*
 func (sH *StaticAssetsHandler) fileHandler() http.Handler {
-	fs := http.FileServer(sH.assetFS)
+	fs := http.FileServer(sH.getAssetFS())
 	base := sH.options.BasePath
 	if base == "/" {
 		return fs
@@ -159,7 +168,6 @@ func (sH *StaticAssetsHandler) fileHandler() http.Handler {
 		fs.ServeHTTP(w, r)
 	})
 }
-*/
 
 func (sH *StaticAssetsHandler) notFound(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
