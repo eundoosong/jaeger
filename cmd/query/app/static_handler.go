@@ -98,7 +98,10 @@ func NewStaticAssetsHandler(staticAssetsRoot string, options StaticAssetsHandler
 		if !strings.HasPrefix(options.BasePath, "/") || strings.HasSuffix(options.BasePath, "/") {
 			return nil, fmt.Errorf(errBadBasePath, options.BasePath)
 		}
+		fmt.Println(string(indexBytes[:]))
 		indexBytes = basePathPattern.ReplaceAll(indexBytes, []byte(fmt.Sprintf(basePathReplace, options.BasePath)))
+		fmt.Println(string(indexBytes[:]))
+
 	}
 
 	return &StaticAssetsHandler{
@@ -147,7 +150,6 @@ func (sH *StaticAssetsHandler) getAssetFS() *assetfs.AssetFS {
 func (sH *StaticAssetsHandler) RegisterRoutes(router *mux.Router) {
 	router.PathPrefix("/static").Handler(sH.fileHandler())
 	for _, file := range staticRootFiles {
-
 		router.Path("/" + file).Handler(http.FileServer(sH.getAssetFS()))
 	}
 	router.NotFoundHandler = http.HandlerFunc(sH.notFound)
