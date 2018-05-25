@@ -15,17 +15,18 @@
 package app
 
 import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
+
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/jaegertracing/jaeger/pkg/testutils"
-	"time"
-	"net/http/httptest"
-	"fmt"
-	"io/ioutil"
-	"net/http"
 )
 
 func TestDefaultStaticAssetsRoot(t *testing.T) {
@@ -88,9 +89,7 @@ func TestRegisterStaticHandler(t *testing.T) {
 			defer server.Close()
 
 			httpGet := func(path string) string {
-				str := fmt.Sprintf("%s%s%s", server.URL, testCase.baseURL, path)
-				fmt.Println(str)
-				resp, err := httpClient.Get(str)
+				resp, err := httpClient.Get(fmt.Sprintf("%s%s%s", server.URL, testCase.baseURL, path))
 				require.NoError(t, err)
 				defer resp.Body.Close()
 

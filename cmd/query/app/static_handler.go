@@ -137,7 +137,7 @@ func loadUIConfig(uiConfig string) (map[string]interface{}, error) {
 	return c, nil
 }
 
-func (sH *StaticAssetsHandler) getAssetFS() *assetfs.AssetFS {
+func (sH *StaticAssetsHandler) AssetFS() *assetfs.AssetFS {
 	return &assetfs.AssetFS{
 		Asset: Asset,
 		AssetDir: AssetDir,
@@ -148,15 +148,18 @@ func (sH *StaticAssetsHandler) getAssetFS() *assetfs.AssetFS {
 
 // RegisterRoutes registers routes for this handler on the given router
 func (sH *StaticAssetsHandler) RegisterRoutes(router *mux.Router) {
-	router.PathPrefix("/static").Handler(sH.fileHandler())
+	assetFS := sH.AssetFS()
+	router.PathPrefix("/static").Handler(sH.fileHandler(assetFS))
 	for _, file := range staticRootFiles {
-		router.Path("/" + file).Handler(http.FileServer(sH.getAssetFS()))
+		router.Path("/" + file).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, sH.staticAssetsRoot+file)
+		})
 	}
 	router.NotFoundHandler = http.HandlerFunc(sH.notFound)
 }
 
-func (sH *StaticAssetsHandler) fileHandler() http.Handler {
-	fs := http.FileServer(sH.getAssetFS())
+func (sH *StaticAssetsHandler) fileHandler(assetFS *assetfs.AssetFS) http.Handler {
+	fs := http.FileServer(assetFS)
 	base := sH.options.BasePath
 	if base == "/" {
 		return fs
