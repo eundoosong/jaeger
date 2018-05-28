@@ -29,34 +29,6 @@ import (
 	"github.com/jaegertracing/jaeger/pkg/testutils"
 )
 
-func TestDefaultStaticAssetsRoot(t *testing.T) {
-	handler, err := NewStaticAssetsHandler("", StaticAssetsHandlerOptions{})
-	assert.Nil(t, handler)
-	assert.Nil(t, err)
-}
-
-func TestNotExistingUiConfig(t *testing.T) {
-	handler, err := NewStaticAssetsHandler("/foo/bar", StaticAssetsHandlerOptions{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Cannot read UI static assets")
-	assert.Nil(t, handler)
-}
-
-func TestRegisterStaticHandlerPanic(t *testing.T) {
-	logger, buf := testutils.NewLogger()
-	assert.Panics(t, func() {
-		RegisterStaticHandler(mux.NewRouter(), logger, &QueryOptions{StaticAssets: "/foo/bar"})
-	})
-	assert.Contains(t, buf.String(), "Could not create static assets handler")
-	assert.Contains(t, buf.String(), "Cannot read UI static assets")
-}
-
-func TestRegisterStaticHandlerNotCreated(t *testing.T) {
-	logger, buf := testutils.NewLogger()
-	RegisterStaticHandler(mux.NewRouter(), logger, &QueryOptions{})
-	assert.Contains(t, buf.String(), "Static handler is not registered")
-}
-
 func TestRegisterStaticHandler(t *testing.T) {
 	testCases := []struct {
 		basePath         string // input to the test
@@ -79,7 +51,6 @@ func TestRegisterStaticHandler(t *testing.T) {
 				r = r.PathPrefix(testCase.basePath).Subrouter()
 			}
 			RegisterStaticHandler(r, logger, &QueryOptions{
-				StaticAssets: "fixture/",
 				BasePath:     testCase.basePath,
 				UIConfig:     "fixture/ui-config.json",
 			})
@@ -113,11 +84,11 @@ func TestRegisterStaticHandler(t *testing.T) {
 }
 
 func TestNewStaticAssetsHandlerErrors(t *testing.T) {
-	_, err := NewStaticAssetsHandler("fixture", StaticAssetsHandlerOptions{UIConfigPath: "fixture/invalid-config"})
+	_, err := NewStaticAssetsHandler(StaticAssetsHandlerOptions{UIConfigPath: "fixture/invalid-config"})
 	assert.Error(t, err)
 
 	for _, base := range []string{"x", "x/", "/x/"} {
-		_, err := NewStaticAssetsHandler("fixture", StaticAssetsHandlerOptions{UIConfigPath: "fixture/ui-config.json", BasePath: base})
+		_, err := NewStaticAssetsHandler(StaticAssetsHandlerOptions{UIConfigPath: "fixture/ui-config.json", BasePath: base})
 		require.Errorf(t, err, "basePath=%s", base)
 		assert.Contains(t, err.Error(), "Invalid base path")
 	}

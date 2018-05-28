@@ -71,6 +71,7 @@ clean:
 
 .PHONY: test
 test: go-gen
+	cd cmd/query/app/fixture && go-bindata-assetfs -o ../bindata.go -pkg app bindata/...
 	bash -c "set -e; set -o pipefail; $(GOTEST) $(TOP_PKGS) | $(COLORIZE)"
 
 .PHONY: integration-test
@@ -149,14 +150,14 @@ build_ui: install-go-bindata
 	rm -rf bindata
 	cp -r jaeger-ui/build bindata
 	go-bindata-assetfs -pkg app bindata/... 
-	mv bindata_assetfs.go cmd/query/app/	
+	mv bindata.go cmd/query/app/
 
 .PHONY: build-all-in-one-linux
-build-all-in-one-linux: build_ui
+build-all-in-one-linux: #build_ui
 	GOOS=linux $(MAKE) build-all-in-one
 
 .PHONY: build-all-in-one-darwin
-build-all-in-one-darwin: build_ui
+build-all-in-one-darwin: #build_ui
 	GOOS=darwin $(MAKE) build-all-in-one
 
 .PHONY: build-all-in-one
