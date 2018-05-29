@@ -149,7 +149,7 @@ build_ui: install-go-bindata
 	cd jaeger-ui && yarn install && npm run build
 	rm -rf bindata
 	cp -r jaeger-ui/build bindata
-	go-bindata-assetfs -pkg app bindata/... 
+	go-bindata-assetfs -o bindata.go -pkg app bindata/...
 	mv bindata.go cmd/query/app/
 
 .PHONY: build-all-in-one-linux

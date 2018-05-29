@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/jaegertracing/jaeger/pkg/testutils"
+	"strconv"
 )
 
 func TestRegisterStaticHandler(t *testing.T) {
@@ -60,12 +61,14 @@ func TestRegisterStaticHandler(t *testing.T) {
 			defer server.Close()
 
 			httpGet := func(path string) string {
-				resp, err := httpClient.Get(fmt.Sprintf("%s%s%s", server.URL, testCase.baseURL, path))
+				fullUrl := fmt.Sprintf("%s%s%s", server.URL, testCase.baseURL, path)
+				resp, err := httpClient.Get(fullUrl)
 				require.NoError(t, err)
 				defer resp.Body.Close()
 
 				respByteArray, err := ioutil.ReadAll(resp.Body)
 				require.NoError(t, err)
+				fmt.Println(fullUrl + " resp: " + strconv.Itoa(resp.StatusCode))
 				require.Equal(t, http.StatusOK, resp.StatusCode)
 				return string(respByteArray)
 			}

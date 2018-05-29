@@ -36,12 +36,11 @@ var (
 	basePathPattern = regexp.MustCompile(`<base href="/"`)
 	basePathReplace = `<base href="%s/"`
 	errBadBasePath  = "Invalid base path '%s'. Must start but not end with a slash '/', e.g. '/jaeger/ui'"
-	AssetsRoot    = "bindata/"
+	assetsRoot    = "bindata/"
 )
 
 // RegisterStaticHandler adds handler for static assets to the router.
 func RegisterStaticHandler(r *mux.Router, logger *zap.Logger, qOpts *QueryOptions) {
-	fmt.Println("static assets : " + AssetsRoot)
 	staticHandler, err := NewStaticAssetsHandler(StaticAssetsHandlerOptions{
 		BasePath:     qOpts.BasePath,
 		UIConfigPath: qOpts.UIConfig,
@@ -59,7 +58,6 @@ func RegisterStaticHandler(r *mux.Router, logger *zap.Logger, qOpts *QueryOption
 // StaticAssetsHandler handles static assets
 type StaticAssetsHandler struct {
 	options          StaticAssetsHandlerOptions
-	staticAssetsRoot string
 	indexHTML		 []byte
 }
 
@@ -71,15 +69,7 @@ type StaticAssetsHandlerOptions struct {
 
 // NewStaticAssetsHandler returns a StaticAssetsHandler
 func NewStaticAssetsHandler(options StaticAssetsHandlerOptions) (*StaticAssetsHandler, error) {
-	/*
-	if staticAssetsRoot == "" {
-		return nil, nil
-	}
-	if !strings.HasSuffix(staticAssetsRoot, "/") {
-		staticAssetsRoot = staticAssetsRoot + "/"
-	}
-	*/
-	indexBytes, err := Asset(AssetsRoot + "index.html")
+	indexBytes, err := Asset(assetsRoot + "index.html")
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot read UI static assets")
 	}
@@ -109,7 +99,6 @@ func NewStaticAssetsHandler(options StaticAssetsHandlerOptions) (*StaticAssetsHa
 
 	return &StaticAssetsHandler{
 		options:          options,
-		staticAssetsRoot: AssetsRoot,
 		indexHTML:		  indexBytes,
 	}, nil
 }
@@ -145,17 +134,16 @@ func (sH *StaticAssetsHandler) AssetFS() *assetfs.AssetFS {
 		Asset: Asset,
 		AssetDir: AssetDir,
 		AssetInfo: AssetInfo,
-		Prefix: sH.staticAssetsRoot,
+		Prefix: assetsRoot,
 	}
 }
 
 // RegisterRoutes registers routes for this handler on the given router
 func (sH *StaticAssetsHandler) RegisterRoutes(router *mux.Router) {
-	router.PathPrefix("/static").Handler(sH.fileHandler())
+	fileHandler := sH.fileHandler()
+	router.PathPrefix("/static").Handler(fileHandler)
 	for _, file := range staticRootFiles {
-		router.Path("/" + file).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, sH.staticAssetsRoot+file)
-		})
+		router.Path("/"+file).Handler(fileHandler)
 	}
 	router.NotFoundHandler = http.HandlerFunc(sH.notFound)
 }
