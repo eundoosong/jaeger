@@ -1,14 +1,12 @@
 PROJECT_ROOT=github.com/jaegertracing/jaeger
 # TOP_PKGS is used with 'go test'
-# TODO: try to do this without glide, since it may not be installed initially
-TOP_PKGS := $(shell glide novendor | \
-	sort | \
-	grep -v \
-		-e ./thrift-gen/... \
-		-e ./swagger-gen/... \
-		-e ./examples/... \
-		-e ./scripts/...\
-	)
+TOP_PKGS := $(shell go list ./... |
+        grep -v \
+        -e ./thrift-gen/... \
+        -e ./swagger-gen/... \
+        -e ./examples/... \
+        -e ./scripts/... \
+        )
 STORAGE_PKGS = ./plugin/storage/integration/...
 
 # all .go files that are not auto-generated and should be auto-formatted and linted.
