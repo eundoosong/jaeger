@@ -359,4 +359,4 @@ imports:
   version: d670f9405373e636a5a2765eea47fac0c9bc91a4
 testImports:
 - name: github.com/kr/text
-version: 7cafcd837844e784b526369c9bce262804aebc60
+  version: 7cafcd837844e784b526369c9bce262804aebc60
