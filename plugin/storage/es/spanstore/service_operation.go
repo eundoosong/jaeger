@@ -19,7 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"hash/fnv"
+	"hash/maphash"
 	"time"
 
 	"github.com/olivere/elastic"
@@ -138,7 +138,7 @@ func getOperationsAggregation() elastic.Query {
 }
 
 func hashCode(s dbmodel.Service) string {
-	h := fnv.New64a()
+	h := maphash.Hash{}
 	h.Write([]byte(s.ServiceName))
 	h.Write([]byte(s.OperationName))
 	return fmt.Sprintf("%x", h.Sum64())

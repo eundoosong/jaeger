@@ -15,8 +15,7 @@
 package spanstore
 
 import (
-	"hash"
-	"hash/fnv"
+	"hash/maphash"
 	"math"
 	"math/big"
 	"sync"
@@ -34,7 +33,7 @@ var (
 
 // hasher includes data we want to put in sync.Pool.
 type hasher struct {
-	hash   hash.Hash64
+	hash   maphash.Hash
 	buffer []byte
 }
 
@@ -83,7 +82,7 @@ func (ds *DownsamplingWriter) WriteSpan(span *model.Span) error {
 // hashBytes returns the uint64 hash value of byte slice.
 func (h *hasher) hashBytes() uint64 {
 	h.hash.Reset()
-	// Currently fnv.Write() implementation doesn't throw any error so metric is not necessary here.
+	// Currently maphash.Write() implementation doesn't throw any error so metric is not necessary here.
 	_, _ = h.hash.Write(h.buffer)
 	return h.hash.Sum64()
 }
@@ -106,7 +105,6 @@ func NewSampler(ratio float64, hashSalt string) *Sampler {
 			buffer := make([]byte, len(hashSaltBytes)+traceIDByteSize)
 			copy(buffer, hashSaltBytes)
 			return &hasher{
-				hash:   fnv.New64a(),
 				buffer: buffer,
 			}
 		},
