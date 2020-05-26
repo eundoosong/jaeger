@@ -97,6 +97,7 @@ func (c *Collector) Start(builderOpts *CollectorOptions) error {
 	if httpServer, err := server.StartHTTPServer(&server.HTTPServerParams{
 		HostPort:       builderOpts.CollectorHTTPHostPort,
 		Handler:        c.spanHandlers.JaegerBatchesHandler,
+		TLSConfig:      builderOpts.TLS,
 		HealthCheck:    c.hCheck,
 		MetricsFactory: c.metricsFactory,
 		SamplingStore:  c.strategyStore,

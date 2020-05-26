@@ -55,7 +55,6 @@ func StartHTTPServer(params *HTTPServerParams) (*http.Server, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		listener, err = tls.Listen("tcp", params.HostPort, tlsCfg)
 	} else {
 		listener, err = net.Listen("tcp", params.HostPort)
