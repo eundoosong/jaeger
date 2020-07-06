@@ -47,8 +47,14 @@ const (
 	collectorZipkinHTTPPortWarning = "(deprecated, will be removed after 2020-06-30 or in release v1.20.0, whichever is later)"
 )
 
-var tlsFlagsConfig = tlscfg.ServerFlagsConfig{
+var tlsGRPCFlagsConfig = tlscfg.ServerFlagsConfig{
 	Prefix:       "collector.grpc",
+	ShowEnabled:  true,
+	ShowClientCA: true,
+}
+
+var tlsHttpFlagsConfig = tlscfg.ServerFlagsConfig{
+	Prefix:       "collector.http",
 	ShowEnabled:  true,
 	ShowClientCA: true,
 }
@@ -96,7 +102,8 @@ func AddFlags(flags *flag.FlagSet) {
 func AddOTELJaegerFlags(flags *flag.FlagSet) {
 	flags.String(CollectorHTTPHostPort, ports.PortToHostPort(ports.CollectorHTTP), "The host:port (e.g. 127.0.0.1:9411 or :9411) of the collector's HTTP server")
 	flags.String(CollectorGRPCHostPort, ports.PortToHostPort(ports.CollectorGRPC), "The host:port (e.g. 127.0.0.1:14250 or :14250) of the collector's GRPC server")
-	tlsFlagsConfig.AddFlags(flags)
+	tlsGRPCFlagsConfig.AddFlags(flags)
+	tlsHttpFlagsConfig.AddFlags(flags)
 }
 
 // AddOTELZipkinFlags adds flag that are exposed by OTEL Zipkin receiver
@@ -115,6 +122,6 @@ func (cOpts *CollectorOptions) InitFromViper(v *viper.Viper) *CollectorOptions {
 	cOpts.CollectorTags = flags.ParseJaegerTags(v.GetString(collectorTags))
 	cOpts.CollectorZipkinAllowedOrigins = v.GetString(collectorZipkinAllowedOrigins)
 	cOpts.CollectorZipkinAllowedHeaders = v.GetString(collectorZipkinAllowedHeaders)
-	cOpts.TLS = tlsFlagsConfig.InitFromViper(v)
+	cOpts.TLS = tlsHttpFlagsConfig.InitFromViper(v)
 	return cOpts
 }

@@ -15,6 +15,7 @@
 package app
 
 import (
+	"crypto/tls"
 	"net"
 	"net/http"
 	"strings"
@@ -90,7 +91,15 @@ func createGRPCServer(querySvc *querysvc.QueryService, options *QueryOptions, lo
 	return server, nil
 }
 
-func createHTTPServer(querySvc *querysvc.QueryService, queryOpts *QueryOptions, tracer opentracing.Tracer, logger *zap.Logger) *http.Server {
+func createHTTPServer(querySvc *querysvc.QueryService, queryOpts *QueryOptions, tracer opentracing.Tracer, logger *zap.Logger) (*http.Server, error) {
+	var tlsCfg *tls.Config
+	if queryOpts.TLS.Enabled {
+		tlsCfg, err := queryOpts.TLS.Config()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	apiHandlerOptions := []HandlerOption{
 		HandlerOptions.Logger(logger),
 		HandlerOptions.Tracer(tracer),
@@ -112,9 +121,11 @@ func createHTTPServer(querySvc *querysvc.QueryService, queryOpts *QueryOptions, 
 	}
 	handler = handlers.CompressHandler(handler)
 	recoveryHandler := recoveryhandler.NewRecoveryHandler(logger, true)
+
 	return &http.Server{
-		Handler: recoveryHandler(handler),
-	}
+		Handler:   recoveryHandler(handler),
+		TLSConfig: tlsCfg,
+	}, nil
 }
 
 // Start http, GRPC and cmux servers concurrently
@@ -147,7 +158,13 @@ func (s *Server) Start() error {
 	go func() {
 		s.logger.Info("Starting HTTP server", zap.Int("port", tcpPort), zap.String("addr", s.queryOptions.HostPort))
 
-		switch err := s.httpServer.Serve(httpListener); err {
+		tlsCfg, err := s.queryOptions.TLS.Config()
+		if err != nil {
+			return nil, err
+		}
+		// https://github.com/soheilhy/cmux/blob/8a8ea3c53959009183d7914522833c1ed8835020/example_tls_test.go#L57
+		tlsl := tls.NewListener(httpListener, tlsCfg)
+		switch err := s.httpServer.Serve(tlsl); err {
 		case nil, http.ErrServerClosed, cmux.ErrListenerClosed:
 			// normal exit, nothing to do
 		default:

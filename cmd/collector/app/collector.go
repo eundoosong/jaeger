@@ -98,6 +98,7 @@ func (c *Collector) Start(builderOpts *CollectorOptions) error {
 		HostPort:       builderOpts.CollectorHTTPHostPort,
 		Handler:        c.spanHandlers.JaegerBatchesHandler,
 		HealthCheck:    c.hCheck,
+		TLSConfig:      builderOpts.TLS,
 		MetricsFactory: c.metricsFactory,
 		SamplingStore:  c.strategyStore,
 		Logger:         c.logger,

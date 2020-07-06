@@ -15,8 +15,11 @@
 package server
 
 import (
+	"crypto/tls"
 	"net"
 	"net/http"
+
+	"github.com/jaegertracing/jaeger/pkg/config/tlscfg"
 
 	"github.com/gorilla/mux"
 	"github.com/uber/jaeger-lib/metrics"
@@ -37,15 +40,27 @@ type HTTPServerParams struct {
 	MetricsFactory metrics.Factory
 	HealthCheck    *healthcheck.HealthCheck
 	Logger         *zap.Logger
+	TLSConfig      tlscfg.Options
 }
 
 // StartHTTPServer based on the given parameters
 func StartHTTPServer(params *HTTPServerParams) (*http.Server, error) {
 	params.Logger.Info("Starting jaeger-collector HTTP server", zap.String("http host-port", params.HostPort))
 
-	listener, err := net.Listen("tcp", params.HostPort)
-	if err != nil {
-		return nil, err
+	var listener net.Listener
+	var err error
+	if params.TLSConfig.Enabled {
+		// user requested a server with TLS, setup creds
+		tlsCfg, err := params.TLSConfig.Config()
+		if err != nil {
+			return nil, err
+		}
+		listener, err = tls.Listen("tcp", params.HostPort, tlsCfg)
+	} else {
+		listener, err = net.Listen("tcp", params.HostPort)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	server := &http.Server{Addr: params.HostPort}
