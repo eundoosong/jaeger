@@ -386,6 +386,7 @@ install-tools:
 	go install github.com/mjibson/esc
 	go install github.com/securego/gosec/cmd/gosec
 	go install honnef.co/go/tools/cmd/staticcheck
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint
 
 .PHONY: install-ci
 install-ci: install-tools
