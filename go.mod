@@ -16,7 +16,7 @@ require (
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/fortytw2/leaktest v1.3.0 // indirect
 	github.com/frankban/quicktest v1.7.3 // indirect
-	github.com/fsnotify/fsnotify v1.4.7
+	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-kit/kit v0.10.0 // indirect
 	github.com/go-openapi/errors v0.19.4
 	github.com/go-openapi/loads v0.19.5
@@ -29,7 +29,8 @@ require (
 	github.com/gogo/googleapis v1.1.0
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/mock v1.4.3 // indirect
-	github.com/golang/protobuf v1.3.4
+	github.com/golang/protobuf v1.4.2
+	github.com/golangci/golangci-lint v1.31.0 // indirect
 	github.com/gorilla/handlers v1.4.2
 	github.com/gorilla/mux v1.7.4
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
@@ -39,7 +40,6 @@ require (
 	github.com/hashicorp/yamux v0.0.0-20190923154419-df201c70410d // indirect
 	github.com/kr/pretty v0.2.0
 	github.com/kr/text v0.2.0 // indirect
-	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/mitchellh/mapstructure v1.2.2 // indirect
 	github.com/mjibson/esc v0.2.0
 	github.com/oklog/run v1.1.0 // indirect
@@ -53,6 +53,7 @@ require (
 	github.com/prometheus/client_golang v1.5.1
 	github.com/prometheus/common v0.10.0 // indirect
 	github.com/prometheus/procfs v0.1.3 // indirect
+	github.com/rakyll/statik v0.1.7
 	github.com/rcrowley/go-metrics v0.0.0-20190826022208-cac0b30c2563 // indirect
 	github.com/rs/cors v1.7.0
 	github.com/sectioneight/md-to-godoc v0.0.0-20161108233149-55e43be6c335
@@ -60,11 +61,11 @@ require (
 	github.com/soheilhy/cmux v0.1.4
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
-	github.com/spf13/cobra v0.0.3
+	github.com/spf13/cobra v1.0.0
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5
-	github.com/spf13/viper v1.6.2
-	github.com/stretchr/testify v1.5.1
+	github.com/spf13/viper v1.7.1
+	github.com/stretchr/testify v1.6.1
 	github.com/uber/jaeger-client-go v2.23.1+incompatible
 	github.com/uber/jaeger-lib v2.2.0+incompatible
 	github.com/vektra/mockery v0.0.0-20181123154057-e78b021dcbb5
@@ -76,10 +77,9 @@ require (
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344
 	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae
-	golang.org/x/tools v0.0.0-20200603131246-cc40288be839 // indirect
 	google.golang.org/grpc v1.29.1
 	gopkg.in/ini.v1 v1.52.0 // indirect
 	gopkg.in/jcmturner/goidentity.v3 v3.0.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0
-	honnef.co/go/tools v0.0.1-2019.2.3
+	honnef.co/go/tools v0.0.1-2020.1.5
 )
